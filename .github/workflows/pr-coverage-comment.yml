@@ -34,7 +34,7 @@ jobs:
               repo: context.repo.repo,
               workflow_id: 'pr-coverage.yml',
             });
-            if (run.workflow_id !== expected.data.id || !run.path.startsWith('.github/workflows/pr-coverage.yml@')) {
+            if (run.workflow_id !== expected.data.id || run.path !== expected.data.path) {
               core.setFailed('The triggering workflow is not the expected PR Coverage workflow.');
               return;
             }
