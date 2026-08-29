@@ -13,6 +13,10 @@ xcodebuild test \
 xcrun xccov view --archive --json .build/XcodeFixture.xcresult
 ```
 
-The generated bundle is intentionally not checked in. Unit tests use the small
-captured archive JSON in `Tests/CoverageReadersTests/Fixtures` and scripted
-process results.
+The generated bundle is intentionally not checked in. The archive format was
+last verified with Xcode 26.3: its reduced capture in
+`Tests/CoverageReadersTests/Fixtures/xccov-archive-xcode-26.3.json` drives a
+reader-to-diff-calculator test containing one covered and one uncovered changed
+line. The matching metadata capture tests archive discovery. A macOS CI smoke
+test also generates a fresh bundle and invokes the CLI against a real Git diff.
+Unit tests use compact captures rather than committing the result bundle.

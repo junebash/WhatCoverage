@@ -1,0 +1,11 @@
+{
+  "/captured/project/Sources/XcodeFixture/Calculator.swift": [
+    {"executionCount": 1, "isExecutable": true, "line": 1},
+    {"executionCount": 1, "isExecutable": true, "line": 2},
+    {"executionCount": 1, "isExecutable": true, "line": 3},
+    {"isExecutable": false, "line": 4},
+    {"executionCount": 0, "isExecutable": true, "line": 5},
+    {"executionCount": 0, "isExecutable": true, "line": 6},
+    {"executionCount": 0, "isExecutable": true, "line": 7}
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "_type": {"_name": "ActionsInvocationRecord"},
+  "actions": {
+    "_type": {"_name": "Array"},
+    "_values": [
+      {
+        "_type": {"_name": "ActionRecord"},
+        "actionResult": {
+          "_type": {"_name": "ActionResult"},
+          "coverage": {
+            "_type": {"_name": "CodeCoverageInfo"},
+            "archiveRef": {
+              "_type": {"_name": "Reference"},
+              "id": {"_type": {"_name": "String"}, "_value": "0~jhgx1W-Pw1AXapRAawbtaP3Fb-wRONHGzMRBrD5bLFXkY09dq07W-FxL-Qt_Dc8cgVG_fq4GiZks7bph4mC86Q=="}
+            },
+            "hasCoverageData": {"_type": {"_name": "Bool"}, "_value": "true"}
+          }
+        }
+      }
+    ]
+  }
+}

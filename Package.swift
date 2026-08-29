@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "WhatCoverage",
+    platforms: [
+        .macOS(.v13),
+    ],
     products: [
         .library(name: "CoverageModel", targets: ["CoverageModel"]),
         .library(name: "CoverageReaders", targets: ["CoverageReaders"]),

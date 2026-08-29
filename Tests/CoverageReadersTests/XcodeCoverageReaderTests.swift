@@ -1,5 +1,6 @@
 import CoverageModel
 import CoverageReaders
+import DiffCoverage
 import Foundation
 import ProcessSupport
 import Testing
@@ -43,6 +44,47 @@ import Testing
             pathMapper: mapper
         )
         #expect(coverage == llvmCoverage)
+    }
+
+    @Test func realXcodeArchiveCountsProduceAccurateDiffCoverage() throws {
+        let archiveFixture = try #require(Bundle.module.url(
+            forResource: "xccov-archive-xcode-26.3",
+            withExtension: "json",
+            subdirectory: "Fixtures"
+        ))
+        let metadataFixture = try #require(Bundle.module.url(
+            forResource: "xcresult-metadata-xcode-26.3",
+            withExtension: "json",
+            subdirectory: "Fixtures"
+        ))
+        let runner = ScriptedRunner(results: [
+            "xcresulttool": ProcessResult(
+                exitCode: 0,
+                standardOutput: try Data(contentsOf: metadataFixture),
+                standardError: ""
+            ),
+            "xccov": ProcessResult(
+                exitCode: 0,
+                standardOutput: try Data(contentsOf: archiveFixture),
+                standardError: ""
+            ),
+        ])
+        let coverage = try XcodeCoverageReader(runner: runner).read(
+            resultBundle: URL(fileURLWithPath: "/tmp/Tests.xcresult"),
+            pathMapper: SourcePathMapper(
+                repositoryRoot: "/current/project",
+                capturedSourceRoot: "/captured/project"
+            )
+        )
+        let changes = try ChangedLines(files: [
+            ChangedFile(path: RepositoryPath("Sources/XcodeFixture/Calculator.swift"), addedLines: [2, 6]),
+        ])
+
+        let report = DiffCoverageCalculator.calculate(coverage: coverage, changes: changes)
+
+        #expect(report.totals == CoverageCounts(executable: 2, covered: 1))
+        #expect(report.files[0].coveredLines == [2])
+        #expect(report.files[0].uncoveredLines == [6])
     }
 
     @Test func failsExplicitlyForZeroOrMultipleCoverageArchives() throws {

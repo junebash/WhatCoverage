@@ -16,3 +16,15 @@ temporary Git repository.
 `xcrun xccov view --archive --json <bundle>.xcresult`. It retains executable,
 non-executable, covered, uncovered, captured-root, relative, and external path
 records while removing project-specific content.
+
+`xccov-archive-xcode-26.3.json` was captured from the checked-in
+`Fixtures/XcodeFixture` package using Xcode 26.3. It retains the source-file
+records exactly (apart from replacing the absolute checkout root with
+`/captured/project`) and verifies that a covered line and an uncovered changed
+line produce 50% diff coverage.
+
+`xcresult-metadata-xcode-26.3.json` is the matching reduced
+`xcresulttool get object --legacy --format json` output. It retains the real
+wrapper objects around `actions`, `coverage`, and `archiveRef`, so the reader's
+coverage-archive discovery is tested against Xcode-generated metadata rather
+than only synthesized JSON.

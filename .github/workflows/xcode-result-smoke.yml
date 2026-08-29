@@ -1,0 +1,83 @@
+name: Xcode result smoke test
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+jobs:
+  xcode-result-smoke:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          test "$(xcodebuild -version | head -1)" = "Xcode 26.3"
+      - name: Run automated tests
+        run: swift test
+      - name: Generate an Xcode result bundle
+        working-directory: Fixtures/XcodeFixture
+        run: |
+          xcodebuild test -quiet \
+            -scheme XcodeFixture \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            -resultBundlePath .build/XcodeFixture.xcresult
+      - name: Report an uncovered changed line from the real bundle
+        run: |
+          set -euo pipefail
+          swift build --product what-coverage
+          base="$(git rev-parse HEAD)"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("Fixtures/XcodeFixture/Sources/XcodeFixture/Calculator.swift")
+          text = source.read_text()
+          assert "    0\n" in text
+          source.write_text(text.replace("    0\n", "    1\n"))
+          PY
+          git config user.email tests@example.com
+          git config user.name Tests
+          git add Fixtures/XcodeFixture/Sources/XcodeFixture/Calculator.swift
+          git commit -m 'Change an uncovered executable line'
+          set +e
+          .build/debug/what-coverage \
+            --input Fixtures/XcodeFixture/.build/XcodeFixture.xcresult \
+            --format xcode \
+            --base "$base" \
+            --comparison direct \
+            --markdown-output xcode-coverage.md \
+            --json-output xcode-coverage.json \
+            --minimum 100
+          status=$?
+          set -e
+          test "$status" -eq 2
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("xcode-coverage.json").read_text())
+          assert report["coverageInput"]["kind"] == "xcode"
+          assert report["totals"] == {
+              "covered": 0,
+              "executable": 1,
+              "percentage": 0,
+              "uncovered": 1,
+          }
+          assert report["files"] == [{
+              "counts": {
+                  "covered": 0,
+                  "executable": 1,
+                  "percentage": 0,
+                  "uncovered": 1,
+              },
+              "coveredLines": [],
+              "path": "Fixtures/XcodeFixture/Sources/XcodeFixture/Calculator.swift",
+              "uncoveredLines": [6],
+          }]
+          assert report["policy"] == {"actual": 0, "status": "failed", "threshold": 100}
+          assert Path("xcode-coverage.md").exists()
+          PY
