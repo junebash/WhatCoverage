@@ -32,3 +32,6 @@ Start with the
 [architecture](Documentation/ARCHITECTURE.md), and
 [roadmap](Documentation/ROADMAP.md). Accepted and pending design choices live in
 the [decision log](Documentation/DECISIONS.md).
+
+See the [release guide](Documentation/RELEASES.md) for the Conventional Commit
+rules and automated Semantic Versioning process.

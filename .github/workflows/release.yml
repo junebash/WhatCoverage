@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify release baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show-ref --verify --quiet refs/tags/v0.0.0 || {
+            echo "::error::Missing required bootstrap tag v0.0.0"
+            exit 1
+          }
+          git merge-base --is-ancestor v0.0.0 HEAD || {
+            echo "::error::v0.0.0 is not an ancestor of HEAD"
+            exit 1
+          }
+      - run: npm ci
+      - run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
