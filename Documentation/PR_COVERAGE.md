@@ -28,7 +28,7 @@ The workflow is deliberately split in two:
    counts, paths, and line lists against strict size limits, then fetches small
    source files from GitHub's Contents API at the verified PR-head SHA. It
    renders new Markdown from those validated values. A separate job receives
-   only the rendered body and has `issues: write` to upsert the comment.
+   only the rendered body and has `pull-requests: write` to upsert the comment.
 
 This keeps a fork PR from obtaining a write-capable token. The comment workflow
 never trusts a PR number, raw Markdown, shell command, link, or source excerpt
