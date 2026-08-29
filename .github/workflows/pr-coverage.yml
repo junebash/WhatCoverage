@@ -1,0 +1,64 @@
+name: PR Coverage
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-coverage-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          test "$(xcodebuild -version | head -1)" = "Xcode 26.3"
+      - id: test
+        name: Run tests with coverage
+        continue-on-error: true
+        run: swift test --enable-code-coverage
+      - id: coverage-path
+        name: Locate SwiftPM coverage
+        if: ${{ steps.test.outcome == 'success' }}
+        continue-on-error: true
+        run: echo "path=$(swift test --show-codecov-path)" >> "$GITHUB_OUTPUT"
+      - id: report
+        name: Generate changed-line coverage report
+        if: ${{ steps.coverage-path.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COVERAGE_PATH: ${{ steps.coverage-path.outputs.path }}
+        run: |
+          set -euo pipefail
+          swift build --product what-coverage
+          .build/debug/what-coverage \
+            --input "$COVERAGE_PATH" \
+            --format llvm \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --markdown-output what-coverage-report.md \
+            --json-output what-coverage-report.json
+      - name: Upload coverage report
+        if: ${{ !cancelled() && hashFiles('what-coverage-report.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: whatcoverage-report
+          path: what-coverage-report.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Preserve coverage failure
+        if: ${{ !cancelled() && (steps.test.outcome != 'success' || steps.coverage-path.outcome != 'success' || steps.report.outcome != 'success') }}
+        run: exit 1

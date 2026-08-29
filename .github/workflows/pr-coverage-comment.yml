@@ -1,0 +1,189 @@
+name: PR Coverage Comment
+
+on:
+  workflow_run:
+    workflows: [PR Coverage]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: coverage-comment-${{ github.event.workflow_run.head_repository_id }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: read
+    outputs:
+      artifact-id: ${{ steps.context.outputs.artifact-id }}
+      pr-number: ${{ steps.context.outputs.pr-number }}
+      body: ${{ steps.render.outputs.body }}
+    steps:
+      - id: context
+        name: Resolve pull request and report artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const expected = await github.rest.actions.getWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'pr-coverage.yml',
+            });
+            if (run.workflow_id !== expected.data.id || !run.path.startsWith('.github/workflows/pr-coverage.yml@')) {
+              core.setFailed('The triggering workflow is not the expected PR Coverage workflow.');
+              return;
+            }
+
+            const matchesRun = (pr) => pr.head.sha === run.head_sha
+              && pr.head.ref === run.head_branch
+              && pr.head.repo?.id === run.head_repository_id;
+            let candidates = run.pull_requests || [];
+            if (candidates.length === 0) {
+              candidates = await github.paginate(github.rest.pulls.list, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+            }
+            const matches = candidates.filter(matchesRun);
+            if (matches.length !== 1) {
+              core.setFailed(`Could not safely associate workflow run ${run.id} with one open pull request.`);
+              return;
+            }
+
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+            const reports = artifacts.filter((artifact) => artifact.name === 'whatcoverage-report' && !artifact.expired);
+            if (reports.length > 1) {
+              core.setFailed(`Workflow run ${run.id} has multiple coverage report artifacts.`);
+              return;
+            }
+            core.setOutput('pr-number', matches[0].number);
+            core.setOutput('artifact-id', reports[0]?.id ?? '');
+      - name: Download report without executing it
+        if: ${{ steps.context.outputs.artifact-id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ steps.context.outputs.artifact-id }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: ${{ runner.temp }}/whatcoverage-report
+      - id: render
+        name: Validate and render comment
+        env:
+          REPORT_DIRECTORY: ${{ runner.temp }}/whatcoverage-report
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const marker = '<!-- whatcoverage:pr-report:v1 -->';
+          const fallback = [marker, '## WhatCoverage', '', `⚠️ Coverage did not produce a valid report. [View the workflow run](${process.env.RUN_URL}).`].join(String.fromCharCode(10));
+          function output(body) {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `body=${Buffer.from(body).toString('base64')}${String.fromCharCode(10)}`);
+          }
+          try {
+            const files = fs.readdirSync(process.env.REPORT_DIRECTORY);
+            if (files.length !== 1 || files[0] !== 'what-coverage-report.json') throw new Error('expected one report file');
+            const reportPath = path.join(process.env.REPORT_DIRECTORY, files[0]);
+            if (fs.statSync(reportPath).size > 1024 * 1024) throw new Error('report is too large');
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const counts = report.totals;
+            if (report.schemaVersion !== 1 || report.coverageInput?.kind !== 'llvm'
+                || report.comparison?.resolvedHead !== process.env.RUN_HEAD_SHA
+                || !Number.isInteger(counts?.covered) || !Number.isInteger(counts?.uncovered)
+                || !Number.isInteger(counts?.executable) || counts.covered + counts.uncovered !== counts.executable
+                || counts.covered < 0 || counts.uncovered < 0
+                || (counts.executable > 0 && (!Number.isFinite(counts.percentage) || counts.percentage < 0 || counts.percentage > 100))
+                || !['passed', 'failed', 'notApplicable'].includes(report.policy?.status)
+                || !Array.isArray(report.files) || report.files.length > 500) {
+              throw new Error('report does not meet the expected coverage contract');
+            }
+            const escape = (value) => String(value)
+              .split(String.fromCharCode(10)).join('')
+              .split(String.fromCharCode(13)).join('')
+              .replace(/[`|<>]/g, '');
+            const percent = counts.executable === 0 ? 'Not applicable' : `${Number(counts.percentage).toFixed(2)}%`;
+            const status = report.policy?.status === 'failed' ? '❌ Below the configured threshold' : '✅ Coverage check passed';
+            const rows = report.files.map((file) => {
+              const fileCounts = file.counts;
+              if (typeof file.path !== 'string' || file.path.length > 500 || !Number.isInteger(fileCounts?.covered)
+                  || !Number.isInteger(fileCounts?.uncovered) || !Number.isInteger(fileCounts?.executable)
+                  || fileCounts.covered + fileCounts.uncovered !== fileCounts.executable || fileCounts.covered < 0
+                  || fileCounts.uncovered < 0
+                  || (fileCounts.executable > 0 && (!Number.isFinite(fileCounts.percentage) || fileCounts.percentage < 0 || fileCounts.percentage > 100))) throw new Error('invalid file result');
+              const filePercent = fileCounts.executable === 0 ? 'Not applicable' : `${Number(fileCounts.percentage).toFixed(2)}%`;
+              return `| \`${escape(file.path)}\` | ${filePercent} | ${fileCounts.covered} | ${fileCounts.uncovered} |`;
+            });
+            const displayedRows = rows.slice(0, 80);
+            const omitted = rows.length - displayedRows.length;
+            const table = rows.length === 0 ? 'No changed executable lines were found.' : [
+              '| File | Coverage | Covered | Uncovered |',
+              '| --- | ---: | ---: | ---: |',
+              ...displayedRows,
+              ...(omitted === 0 ? [] : [`${String.fromCharCode(10)}_${omitted} additional files omitted._`]),
+            ].join(String.fromCharCode(10));
+            output([marker, '## WhatCoverage', '', status, '', `**Diff coverage:** ${percent} (${counts.covered}/${counts.executable} executable lines)`, '', '<details>', '<summary>Verbose coverage report</summary>', '', table, '', `[View the workflow run](${process.env.RUN_URL})`, '</details>'].join(String.fromCharCode(10)));
+          } catch (error) {
+            console.log(`Rendering a fallback coverage comment: ${error.message}`);
+            output(fallback);
+          }
+          NODE
+  comment:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.pr-number != '' && needs.prepare.outputs.body != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Create or update coverage comment
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          COMMENT_BODY: ${{ needs.prepare.outputs.body }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_HEAD_REPOSITORY_ID: ${{ github.event.workflow_run.head_repository_id }}
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+            if (pr.data.head.sha !== process.env.RUN_HEAD_SHA
+                || pr.data.head.ref !== process.env.RUN_HEAD_BRANCH
+                || String(pr.data.head.repo?.id) !== process.env.RUN_HEAD_REPOSITORY_ID) {
+              core.notice('Skipping a stale coverage comment.');
+              return;
+            }
+            const marker = '<!-- whatcoverage:pr-report:v1 -->';
+            const body = Buffer.from(process.env.COMMENT_BODY, 'base64').toString('utf8');
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.data.number,
+              per_page: 100,
+            });
+            const ours = comments.filter((comment) => comment.user?.login === 'github-actions[bot]' && comment.body?.startsWith(marker));
+            if (ours.length === 0) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.data.number, body });
+              return;
+            }
+            await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: ours[0].id, body });
+            for (const duplicate of ours.slice(1)) {
+              await github.rest.issues.deleteComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: duplicate.id });
+            }

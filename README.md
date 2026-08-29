@@ -35,3 +35,6 @@ the [decision log](Documentation/DECISIONS.md).
 
 See the [release guide](Documentation/RELEASES.md) for the Conventional Commit
 rules and automated Semantic Versioning process.
+
+See the [pull-request coverage workflow guide](Documentation/PR_COVERAGE.md)
+to enable and understand the GitHub PR comment integration.
