@@ -165,6 +165,17 @@ public enum PolicyOutcome: Equatable, Sendable {
     case notApplicable(threshold: Percentage?)
     case passed(threshold: Percentage?)
     case failed(threshold: Percentage, actual: Percentage)
+
+    public var statusLabel: String {
+        switch self {
+        case .notApplicable:
+            "Not applicable"
+        case .passed:
+            "Passed"
+        case .failed:
+            "Failed"
+        }
+    }
 }
 
 public struct DiffCoverageReport: Equatable, Sendable {
