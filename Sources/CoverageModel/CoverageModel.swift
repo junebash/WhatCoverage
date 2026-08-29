@@ -155,6 +155,14 @@ public enum CoverageStatus: Equatable, Sendable {
     case notApplicable
     case complete
     case partial
+
+    public var displayName: String {
+        switch self {
+        case .notApplicable: "Not applicable"
+        case .complete: "Complete"
+        case .partial: "Partial"
+        }
+    }
 }
 
 public struct FileCoverageResult: Equatable, Sendable {
