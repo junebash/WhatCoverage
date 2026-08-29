@@ -1,0 +1,13 @@
+{
+  "/captured/project/Sources/App.swift": [
+    {"line": 1, "isExecutable": false},
+    {"line": 2, "isExecutable": true, "executionCount": 4},
+    {"line": 3, "isExecutable": true, "executionCount": 0}
+  ],
+  "/outside/Generated.swift": [
+    {"line": 1, "isExecutable": true, "executionCount": 1}
+  ],
+  "Sources/Relative.swift": [
+    {"line": 7, "isExecutable": true, "executionCount": 1}
+  ]
+}

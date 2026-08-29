@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/junebash/whatcoverage/Documentation/whatcoverage-report-v1.schema.json",
+  "title": "WhatCoverage report version 1",
+  "type": "object",
+  "required": ["schemaVersion", "comparison", "coverageInput", "pathMapping", "totals", "files", "policy"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "comparison": {
+      "type": "object",
+      "required": ["requestedBase", "requestedHead", "resolvedBase", "resolvedHead", "mode"],
+      "properties": {
+        "requestedBase": {"type": "string"},
+        "requestedHead": {"type": "string"},
+        "resolvedBase": {"type": "string"},
+        "resolvedHead": {"type": "string"},
+        "mode": {"enum": ["mergeBase", "direct"]}
+      }
+    },
+    "coverageInput": {
+      "type": "object",
+      "required": ["kind", "source"],
+      "properties": {
+        "kind": {"enum": ["xcode", "llvm"]},
+        "source": {"type": "string"}
+      }
+    },
+    "pathMapping": {
+      "type": "object",
+      "required": ["repositoryRoot"],
+      "properties": {
+        "repositoryRoot": {"type": "string"},
+        "capturedSourceRoot": {"type": "string"}
+      }
+    },
+    "totals": {"$ref": "#/$defs/counts"},
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "counts", "coveredLines", "uncoveredLines"],
+        "properties": {
+          "path": {"type": "string"},
+          "counts": {"$ref": "#/$defs/counts"},
+          "coveredLines": {"$ref": "#/$defs/lines"},
+          "uncoveredLines": {"$ref": "#/$defs/lines"}
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["status"],
+      "oneOf": [
+        {
+          "properties": {"status": {"const": "failed"}},
+          "required": ["threshold", "actual"]
+        },
+        {
+          "properties": {"status": {"const": "passed"}},
+          "not": {"required": ["actual"]}
+        },
+        {
+          "properties": {"status": {"const": "notApplicable"}},
+          "not": {"required": ["actual"]}
+        }
+      ],
+      "properties": {
+        "status": {"enum": ["passed", "failed", "notApplicable"]},
+        "threshold": {"$ref": "#/$defs/percentage"},
+        "actual": {"$ref": "#/$defs/percentage"}
+      }
+    }
+  },
+  "$defs": {
+    "percentage": {"type": "number", "minimum": 0, "maximum": 100},
+    "counts": {
+      "type": "object",
+      "required": ["executable", "covered", "uncovered"],
+      "properties": {
+        "executable": {"type": "integer", "minimum": 0},
+        "covered": {"type": "integer", "minimum": 0},
+        "uncovered": {"type": "integer", "minimum": 0},
+        "percentage": {"$ref": "#/$defs/percentage"}
+      }
+    },
+    "lines": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 1}
+    }
+  }
+}

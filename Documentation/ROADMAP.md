@@ -4,11 +4,13 @@ Each phase ends with tested, usable behavior and a documentation update. Plans
 for a phase should be written immediately before implementation so they can
 reflect what earlier work taught us.
 
-**Status:** Phases 1–3 implemented with library APIs, fixtures, pure calculation
-tests, Git integration tests, and an LLVM-to-Git-to-report integration test.
+**Status:** Phases 1–5 implemented with library APIs, fixtures, pure calculation
+tests, Git integration tests, both coverage readers, deterministic Markdown and
+versioned JSON rendering, and an LLVM-to-Git-to-report integration test. Live
+`.xcresult` regeneration remains a documented macOS/Xcode verification step
+because the development orb is Linux.
 
-**Next:** Phase 4, Xcode coverage input. The command interface and report
-renderers remain intentionally deferred to their documented phases.
+**Next:** Phase 6, the command-line product using Swift Argument Parser.
 
 ## Phase 1: Domain model and diff calculation
 
@@ -83,6 +85,13 @@ through the public library API.
 
 ## Phase 4: Xcode coverage input
 
+**Completed:** The Xcode reader invokes archive JSON rather than summary JSON,
+normalizes executable line counts through the shared path mapper, distinguishes
+tool, bundle, missing-coverage, malformed-output, and model failures, and rejects
+multiple action archive references before invoking `xccov`. A minimal Swift
+package and generation command reproduce a real `.xcresult` on macOS; compact
+captured JSON and scripted process fixtures keep unit tests platform-neutral.
+
 **Outcome:** An existing Xcode result bundle normalizes into the same model.
 
 - Establish supported `xccov` and result-bundle version assumptions.
@@ -105,6 +114,12 @@ small captured `xccov` JSON and process-runner fixtures instead of committing th
 generated bundle.
 
 ## Phase 5: JSON and Markdown rendering
+
+**Completed:** `CoverageReportDocument` carries provider-neutral report metadata
+into isolated JSON and Markdown renderers. JSON schema version 1 and its
+compatibility policy are published; sorted, pretty-printed JSON and
+locale-independent Markdown have golden coverage for threshold failure and
+not-applicable results.
 
 **Outcome:** A report can be serialized for machines and rendered for people.
 

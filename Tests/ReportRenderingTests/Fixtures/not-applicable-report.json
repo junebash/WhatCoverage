@@ -1,0 +1,29 @@
+{
+  "comparison" : {
+    "mode" : "direct",
+    "requestedBase" : "v1",
+    "requestedHead" : "HEAD",
+    "resolvedBase" : "1111111",
+    "resolvedHead" : "2222222"
+  },
+  "coverageInput" : {
+    "kind" : "llvm",
+    "source" : "coverage.json"
+  },
+  "files" : [
+
+  ],
+  "pathMapping" : {
+    "repositoryRoot" : "/workspace/repo"
+  },
+  "policy" : {
+    "status" : "notApplicable",
+    "threshold" : 75
+  },
+  "schemaVersion" : 1,
+  "totals" : {
+    "covered" : 0,
+    "executable" : 0,
+    "uncovered" : 0
+  }
+}

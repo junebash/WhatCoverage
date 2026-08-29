@@ -1,6 +1,7 @@
 import CoverageModel
 import Foundation
 import GitDiff
+import ProcessSupport
 import Testing
 
 @Suite struct GitDiffProviderIntegrationTests {

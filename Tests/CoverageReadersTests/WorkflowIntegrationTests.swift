@@ -3,6 +3,7 @@ import CoverageReaders
 import DiffCoverage
 import Foundation
 import GitDiff
+import ProcessSupport
 import Testing
 
 @Suite struct WorkflowIntegrationTests {

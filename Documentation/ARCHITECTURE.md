@@ -44,7 +44,10 @@ Line-level Xcode coverage comes from `xcrun xccov view --archive --json`. The
 similarly named `--report` output contains useful summaries but lacks the
 executable line records required for diff coverage. The Xcode reader owns this
 process and distinguishes a missing tool, invalid result bundle, absent coverage,
-and malformed output.
+and malformed output. It first inspects Xcode 16+ result-bundle action metadata
+with `xcresulttool get object --legacy`: exactly one distinct coverage archive is
+required. This prevents `xccov` from implicitly choosing among multiple test
+actions using behavior Apple does not document as deterministic.
 
 LLVM coverage JSON is decoded directly. Its `segments` records encode coverage
 regions and transitions rather than a ready-made line map, so the reader owns
@@ -59,6 +62,13 @@ detail. By default, paths under the current repository root become relative. For
 artifacts produced elsewhere, the caller supplies the captured checkout's source
 root, which is replaced by the current repository root. Paths outside that root
 are excluded from diff correlation; collisions and ambiguous mappings fail.
+
+### ProcessSupport
+
+Owns the small sendable process-running interface and Foundation adapter shared
+by the Xcode reader and Git provider. Keeping process mechanics here avoids a
+dependency between the otherwise independent coverage-input and Git modules;
+tests inject value-based scripted runners.
 
 ### GitDiff
 
@@ -87,7 +97,11 @@ its inputs and outputs are values and its tests require no processes or files.
 
 Transforms one report model into versioned JSON or Markdown. Renderers do not
 recalculate percentages or policy outcomes. This prevents output formats from
-disagreeing.
+disagreeing. `CoverageReportDocument` combines the calculated result with
+provider-independent revision, artifact, and path-mapping metadata before it
+crosses the rendering boundary. JSON version 1 is published as
+`Documentation/whatcoverage-report-v1.schema.json`; Markdown formats percentages
+to two decimal places for display while JSON preserves the model's full value.
 
 ### WhatCoverage CLI
 
@@ -98,7 +112,7 @@ argument validation, and generated help while keeping all coverage behavior in
 the focused library modules. That dependency is introduced with the CLI phase,
 not by the current library implementation.
 
-## Proposed report contract
+## Report contract
 
 The report model needs enough context to render all initial formats and support
 future integrations:
@@ -114,8 +128,9 @@ future integrations:
 - optional threshold
 - policy outcome: passed, failed, or not applicable
 
-JSON schema changes follow semantic intent: additive fields may preserve a
-version, while changed meaning or removed fields require a new schema version.
+JSON consumers must ignore unknown object members. Additive optional members may
+preserve a version; changed meaning, removed or newly required members, changed
+types, and enum expansion require a new schema version.
 
 ## Error model
 

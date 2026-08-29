@@ -178,3 +178,81 @@ public struct DiffCoverageReport: Equatable, Sendable {
         self.policy = policy
     }
 }
+
+public enum RevisionRangeMode: String, Codable, Sendable {
+    case mergeBase
+    case direct
+}
+
+public enum CoverageInputKind: String, Codable, Sendable {
+    case xcode
+    case llvm
+}
+
+public struct RevisionMetadata: Equatable, Sendable {
+    public let requestedBase: String
+    public let requestedHead: String
+    public let resolvedBase: String
+    public let resolvedHead: String
+    public let mode: RevisionRangeMode
+
+    public init(
+        requestedBase: String,
+        requestedHead: String,
+        resolvedBase: String,
+        resolvedHead: String,
+        mode: RevisionRangeMode
+    ) {
+        self.requestedBase = requestedBase
+        self.requestedHead = requestedHead
+        self.resolvedBase = resolvedBase
+        self.resolvedHead = resolvedHead
+        self.mode = mode
+    }
+}
+
+public struct CoverageInputMetadata: Equatable, Sendable {
+    public let kind: CoverageInputKind
+    public let source: String
+
+    public init(kind: CoverageInputKind, source: String) {
+        self.kind = kind
+        self.source = source
+    }
+}
+
+public struct PathMappingMetadata: Equatable, Sendable {
+    public let repositoryRoot: String
+    public let capturedSourceRoot: String?
+
+    public init(repositoryRoot: String, capturedSourceRoot: String? = nil) {
+        self.repositoryRoot = repositoryRoot
+        self.capturedSourceRoot = capturedSourceRoot
+    }
+}
+
+public struct ReportMetadata: Equatable, Sendable {
+    public let revision: RevisionMetadata
+    public let coverageInput: CoverageInputMetadata
+    public let pathMapping: PathMappingMetadata
+
+    public init(
+        revision: RevisionMetadata,
+        coverageInput: CoverageInputMetadata,
+        pathMapping: PathMappingMetadata
+    ) {
+        self.revision = revision
+        self.coverageInput = coverageInput
+        self.pathMapping = pathMapping
+    }
+}
+
+public struct CoverageReportDocument: Equatable, Sendable {
+    public let metadata: ReportMetadata
+    public let result: DiffCoverageReport
+
+    public init(metadata: ReportMetadata, result: DiffCoverageReport) {
+        self.metadata = metadata
+        self.result = result
+    }
+}

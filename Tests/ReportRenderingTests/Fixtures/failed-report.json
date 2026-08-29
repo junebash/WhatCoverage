@@ -1,0 +1,61 @@
+{
+  "comparison" : {
+    "mode" : "mergeBase",
+    "requestedBase" : "origin/main",
+    "requestedHead" : "HEAD",
+    "resolvedBase" : "aaaaaaa",
+    "resolvedHead" : "bbbbbbb"
+  },
+  "coverageInput" : {
+    "kind" : "xcode",
+    "source" : "Artifacts/Tests.xcresult"
+  },
+  "files" : [
+    {
+      "counts" : {
+        "covered" : 1,
+        "executable" : 2,
+        "percentage" : 50,
+        "uncovered" : 1
+      },
+      "coveredLines" : [
+        1
+      ],
+      "path" : "Sources/A.swift",
+      "uncoveredLines" : [
+        3
+      ]
+    },
+    {
+      "counts" : {
+        "covered" : 0,
+        "executable" : 1,
+        "percentage" : 0,
+        "uncovered" : 1
+      },
+      "coveredLines" : [
+
+      ],
+      "path" : "Sources/B.swift",
+      "uncoveredLines" : [
+        2
+      ]
+    }
+  ],
+  "pathMapping" : {
+    "capturedSourceRoot" : "/build/repo",
+    "repositoryRoot" : "/workspace/repo"
+  },
+  "policy" : {
+    "actual" : 33.333333333333336,
+    "status" : "failed",
+    "threshold" : 50
+  },
+  "schemaVersion" : 1,
+  "totals" : {
+    "covered" : 1,
+    "executable" : 3,
+    "percentage" : 33.333333333333336,
+    "uncovered" : 2
+  }
+}

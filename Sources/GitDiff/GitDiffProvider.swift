@@ -1,10 +1,8 @@
 import CoverageModel
 import Foundation
+import ProcessSupport
 
-public enum GitComparisonMode: String, Equatable, Sendable {
-    case mergeBase
-    case direct
-}
+public typealias GitComparisonMode = RevisionRangeMode
 
 public struct GitComparison: Equatable, Sendable {
     public let requestedBase: String

@@ -65,20 +65,29 @@ modules for coverage reading, Git discovery, calculation, and rendering. The
 dependency is deferred until the command-line product phase and is not part of
 the current library implementation slice.
 
+### D-010: Reject Xcode result bundles with multiple coverage archives
+
+`xccov view --archive` documents extraction of a singular archive from a result
+bundle. Its separate `merge` command is the only documented aggregation path,
+and no deterministic implicit selection rule is published for bundles with
+multiple test actions. Before reading coverage, WhatCoverage uses the Xcode 16+
+legacy object view from `xcresulttool` to count distinct action coverage archive
+references. Zero archives is missing coverage, one is read with
+`xcrun xccov view --archive --json`, and more than one fails with an actionable
+ambiguity error. A future explicit action-selection or merge feature can replace
+this decision without silently changing current results.
+
+### D-011: Version JSON by semantic compatibility
+
+JSON reports carry integer `schemaVersion: 1` and conform to the published
+version 1 schema. Within a schema version, producers may add optional object
+members; consumers should ignore members they do not recognize. Removing or
+renaming a member, changing its type or meaning, making an optional member
+required, or adding an enum value requires a new schema version. Version 1 omits
+`percentage` for a zero denominator, `capturedSourceRoot` when no remapping was
+requested, `threshold` when no threshold was configured, and policy `actual`
+unless the policy failed.
+
 ## Pending
 
-### P-001: JSON compatibility policy
-
-Define the precise guarantees attached to schema version 1, including treatment
-of additive optional fields and enum expansion.
-
-Resolve before Phase 5.
-
-### P-002: Xcode multi-action aggregation
-
-`xccov` exposes one coverage archive from a result bundle. Verify its behavior
-when the bundle contains multiple test actions. Preserve a deterministic native
-aggregate when available; otherwise require an explicit failure or selection
-policy before completing the Xcode reader.
-
-Resolve during Phase 4 before fixing the reader's public behavior.
+None.

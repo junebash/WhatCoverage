@@ -11,3 +11,8 @@ temporary checkout prefix replaced by `/captured/project`.
 
 The workflow integration test combines the synthetic fixture with a real
 temporary Git repository.
+
+`xccov-archive.json` is a reduced capture of
+`xcrun xccov view --archive --json <bundle>.xcresult`. It retains executable,
+non-executable, covered, uncovered, captured-root, relative, and external path
+records while removing project-specific content.
