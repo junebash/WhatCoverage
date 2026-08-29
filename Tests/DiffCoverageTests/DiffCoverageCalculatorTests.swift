@@ -48,6 +48,15 @@ import Testing
         #expect(report.files.isEmpty)
     }
 
+    @Test func reportIdentifiesPartialCoverage() throws {
+        let coverage = try NormalizedCoverage(files: [file("A.swift", [(1, 1), (2, 0)])])
+        let changes = try ChangedLines(files: [changed("A.swift", [1, 2])])
+
+        let report = DiffCoverageCalculator.calculate(coverage: coverage, changes: changes)
+
+        #expect(report.totals.status == .partial)
+    }
+
     private func file(_ path: String, _ lines: [(Int, Int)]) throws -> FileCoverage {
         try FileCoverage(path: RepositoryPath(path), lines: lines.map { try LineCoverage(line: $0.0, executionCount: $0.1) })
     }

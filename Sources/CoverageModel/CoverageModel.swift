@@ -138,11 +138,23 @@ public struct CoverageCounts: Equatable, Sendable {
     public var uncovered: Int { executable - covered }
     public var percentage: Percentage? { .ratio(covered: covered, executable: executable) }
 
+    public var status: CoverageStatus {
+        if executable == 0 { return .notApplicable }
+        if uncovered == 0 { return .complete }
+        return .partial
+    }
+
     package init(executable: Int, covered: Int) {
         precondition(executable >= 0 && covered >= 0 && covered <= executable)
         self.executable = executable
         self.covered = covered
     }
+}
+
+public enum CoverageStatus: Equatable, Sendable {
+    case notApplicable
+    case complete
+    case partial
 }
 
 public struct FileCoverageResult: Equatable, Sendable {
