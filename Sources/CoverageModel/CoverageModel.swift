@@ -176,6 +176,17 @@ public enum PolicyOutcome: Equatable, Sendable {
             "Failed"
         }
     }
+
+    public var statusSummary: String {
+        switch self {
+        case .notApplicable:
+            "No changed executable lines"
+        case .passed:
+            "Coverage meets the configured minimum"
+        case .failed:
+            "Coverage is below the configured minimum"
+        }
+    }
 }
 
 public struct DiffCoverageReport: Equatable, Sendable {
