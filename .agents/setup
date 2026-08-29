@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Orb setup for WhatCoverage: install the pinned Swift toolchain and warm the
+# SwiftPM build cache. Idempotent; safe to re-run on a stale snapshot.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+REPO_ROOT="$(pwd)"
+
+log() { printf '\n[setup] %s\n' "$*"; }
+
+SWIFT_VERSION="6.2.1"
+SWIFT_PLATFORM="debian12"
+SWIFT_INSTALL_DIR="/opt/swift"
+SWIFT_URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/${SWIFT_PLATFORM}/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${SWIFT_PLATFORM}.tar.gz"
+
+# Swift toolchain runtime dependencies for Debian 12 (swift.org install docs).
+SWIFT_APT_PACKAGES=(
+  binutils
+  git
+  gnupg2
+  libc6-dev
+  libcurl4-openssl-dev
+  libedit2
+  libgcc-12-dev
+  libpython3.11
+  libsqlite3-0
+  libstdc++-12-dev
+  libxml2-dev
+  libz3-dev
+  pkg-config
+  tzdata
+  zlib1g-dev
+)
+
+install_swift_runtime_packages() {
+  local missing=()
+  local pkg
+  for pkg in "${SWIFT_APT_PACKAGES[@]}"; do
+    if ! dpkg-query -W -f='${db:Status-Abbrev}' "$pkg" 2>/dev/null | grep -q '^ii'; then
+      missing+=("$pkg")
+    fi
+  done
+
+  if [ "${#missing[@]}" -eq 0 ]; then
+    log "Swift runtime packages already installed, skipping apt-get"
+    return
+  fi
+
+  log "Installing Swift runtime packages: ${missing[*]}"
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+}
+
+install_swift_toolchain() {
+  if [ -x "${SWIFT_INSTALL_DIR}/usr/bin/swift" ]; then
+    log "Swift ${SWIFT_VERSION} toolchain already present at ${SWIFT_INSTALL_DIR}"
+    return
+  fi
+
+  log "Downloading Swift ${SWIFT_VERSION} toolchain (${SWIFT_PLATFORM})"
+  local tarball="/tmp/swift-${SWIFT_VERSION}-${SWIFT_PLATFORM}.tar.gz"
+  curl -fsSL --retry 3 -o "$tarball" "$SWIFT_URL"
+
+  log "Extracting Swift toolchain to ${SWIFT_INSTALL_DIR}"
+  rm -rf "${SWIFT_INSTALL_DIR}.tmp" "${SWIFT_INSTALL_DIR}"
+  mkdir -p "${SWIFT_INSTALL_DIR}.tmp"
+  tar -xzf "$tarball" -C "${SWIFT_INSTALL_DIR}.tmp" --strip-components=1
+  mv "${SWIFT_INSTALL_DIR}.tmp" "$SWIFT_INSTALL_DIR"
+  rm -f "$tarball"
+}
+
+link_swift_binaries() {
+  # Symlink toolchain binaries into /usr/local/bin so non-interactive login
+  # shells (Amp, supervised services) get them without profile changes.
+  local bin
+  for bin in "${SWIFT_INSTALL_DIR}"/usr/bin/*; do
+    ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
+  done
+  chmod +x /usr/local/bin/swift* 2>/dev/null || true
+}
+
+run_timed() {
+  local name="$1"
+  shift
+  local started=$SECONDS
+  "$@"
+  log "${name} took $((SECONDS - started))s"
+}
+
+warm_build_cache() {
+  if ! command -v swift >/dev/null 2>&1; then
+    echo "[setup] ERROR: swift not on PATH after toolchain install" >&2
+    exit 1
+  fi
+  swift --version
+
+  # SwiftPM lock files in /tmp are keyed by the repo path with '/' replaced by
+  # '_' (the leading '/' already yields the leading '_'); stale root-owned
+  # locks from a previous snapshot would block agent-user builds.
+  find /tmp -maxdepth 1 -name "${REPO_ROOT//\//_}_.build*" -delete
+
+  # Build once so fresh orbs start with .build/ populated (snapshot preserves it).
+  # When setup runs as root, build and hand ownership to the agent user so later
+  # `swift build` runs do not fail on root-owned build artifacts.
+  if [ "$(id -u)" -eq 0 ]; then
+    local build_user="${SUDO_USER:-user}"
+    run_timed "swift build" runuser -u "$build_user" -- swift build
+    chown -R "$build_user": "$REPO_ROOT/.build"
+  else
+    run_timed "swift build" swift build
+  fi
+}
+
+log "Setting up WhatCoverage orb in ${REPO_ROOT}"
+run_timed "runtime packages" install_swift_runtime_packages
+run_timed "toolchain install" install_swift_toolchain
+link_swift_binaries
+run_timed "build warm-up" warm_build_cache
+log "Setup complete"

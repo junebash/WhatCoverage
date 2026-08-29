@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Orb resume for WhatCoverage. This project has no databases, servers, or
+# thread-specific auth, so resume only re-checks that the Swift toolchain is
+# reachable. Keep it fast: Amp waits at most 10 seconds.
+set -euo pipefail
+
+if ! command -v swift >/dev/null 2>&1; then
+  echo "[resume] swift not on PATH; run .agents/setup to reinstall the toolchain" >&2
+  exit 1
+fi
+
+printf '[resume] Swift toolchain OK: %s\n' "$(command -v swift)"
