@@ -93,7 +93,10 @@ disagreeing.
 
 Validates arguments, selects a reader, coordinates Git and coverage input,
 writes requested reports, prints diagnostics, and maps typed outcomes to exit
-statuses.
+statuses. It will use Apple's `swift-argument-parser` for the command definition,
+argument validation, and generated help while keeping all coverage behavior in
+the focused library modules. That dependency is introduced with the CLI phase,
+not by the current library implementation.
 
 ## Proposed report contract
 

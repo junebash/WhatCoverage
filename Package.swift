@@ -5,11 +5,29 @@ import PackageDescription
 
 let package = Package(
     name: "WhatCoverage",
+    products: [
+        .library(name: "CoverageModel", targets: ["CoverageModel"]),
+        .library(name: "CoverageReaders", targets: ["CoverageReaders"]),
+        .library(name: "DiffCoverage", targets: ["DiffCoverage"]),
+        .library(name: "GitDiff", targets: ["GitDiff"]),
+        .executable(name: "what-coverage", targets: ["WhatCoverage"]),
+    ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
+        .target(name: "CoverageModel"),
+        .target(name: "CoverageReaders", dependencies: ["CoverageModel"]),
+        .target(name: "DiffCoverage", dependencies: ["CoverageModel"]),
+        .target(name: "GitDiff", dependencies: ["CoverageModel"]),
         .executableTarget(
-            name: "WhatCoverage"
+            name: "WhatCoverage",
+            dependencies: ["CoverageReaders", "DiffCoverage", "GitDiff"]
         ),
+        .testTarget(name: "CoverageModelTests", dependencies: ["CoverageModel"]),
+        .testTarget(
+            name: "CoverageReadersTests",
+            dependencies: ["CoverageReaders", "DiffCoverage", "GitDiff"],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(name: "DiffCoverageTests", dependencies: ["DiffCoverage"]),
+        .testTarget(name: "GitDiffTests", dependencies: ["CoverageModel", "GitDiff"]),
     ]
 )

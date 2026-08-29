@@ -4,12 +4,17 @@ Each phase ends with tested, usable behavior and a documentation update. Plans
 for a phase should be written immediately before implementation so they can
 reflect what earlier work taught us.
 
-**Status:** Planning foundation recorded; implementation has not started.
+**Status:** Phases 1–3 implemented with library APIs, fixtures, pure calculation
+tests, Git integration tests, and an LLVM-to-Git-to-report integration test.
 
-**Next:** Resolve the Phase 1 model details in a short implementation plan, then
-write the first failing calculation test.
+**Next:** Phase 4, Xcode coverage input. The command interface and report
+renderers remain intentionally deferred to their documented phases.
 
 ## Phase 1: Domain model and diff calculation
+
+**Completed:** Initial normalized model, exact percentage and policy semantics,
+pure intersection/aggregation, deterministic ordering, and Swift 6.2 strict
+concurrency-safe values are implemented and tested.
 
 **Outcome:** Pure Swift code calculates a diff-coverage report from normalized
 coverage and changed-line values.
@@ -33,6 +38,11 @@ or launching processes.
 
 ## Phase 2: Git changed-line discovery
 
+**Completed:** Process execution, raw NUL-delimited status parsing, zero-context
+hunk parsing, both comparison modes, rename head paths, filtering, resolved
+revision metadata, and actionable failures are implemented and tested against
+fixtures and temporary repositories.
+
 **Outcome:** The library resolves head-side changed lines between two revisions.
 
 - Introduce an isolated process runner.
@@ -50,6 +60,10 @@ or launching processes.
 parser fixtures for every supported diff shape.
 
 ## Phase 3: SwiftPM LLVM coverage input
+
+**Completed:** LLVM export type/version validation, segment-to-line conversion,
+explicit source-root mapping, collision detection, typed malformed-input errors,
+and an artifact-to-Git-to-report integration path are implemented and tested.
 
 **Outcome:** Existing LLVM coverage JSON normalizes into the shared model.
 
@@ -110,7 +124,8 @@ report and policy outcome.
 **Outcome:** Users can run the complete artifact-to-report workflow locally or
 in any CI provider.
 
-- Design and implement the command interface.
+- Design and implement the command interface with Apple's
+  `swift-argument-parser` package.
 - Infer input format where unambiguous and permit an explicit override.
 - Accept a captured source root and demonstrate cross-machine path remapping.
 - Support simultaneous Markdown and JSON outputs.

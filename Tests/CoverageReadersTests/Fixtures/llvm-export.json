@@ -1,0 +1,27 @@
+{
+  "type": "llvm.coverage.json.export",
+  "version": "2.0.1",
+  "data": [{
+    "files": [
+      {
+        "filename": "/captured/project/Sources/App.swift",
+        "segments": [
+          [2, 1, 4, true, true, false],
+          [3, 1, 0, true, true, false],
+          [3, 20, 0, false, false, false]
+        ]
+      },
+      {
+        "filename": "Sources/Relative.swift",
+        "segments": [
+          [7, 3, 1, true, true, false],
+          [8, 1, 0, false, false, false]
+        ]
+      },
+      {
+        "filename": "/dependency/External.swift",
+        "segments": [[1, 1, 1, true, true, false], [2, 1, 0, false, false, false]]
+      }
+    ]
+  }]
+}

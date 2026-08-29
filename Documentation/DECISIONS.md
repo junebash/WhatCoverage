@@ -49,6 +49,22 @@ artifact produced in another checkout, the caller can provide its captured
 source root, which maps to the current repository root. This covers the primary
 CI artifact-transfer case without exposing a general path-rewrite language.
 
+### D-008: Keep calculated percentages unrounded
+
+The domain model stores the full calculated percentage and compares thresholds
+against that value. Renderers may round for display, but must not feed a rounded
+value back into policy evaluation. This keeps threshold behavior independent of
+output formatting.
+
+### D-009: Build the CLI with Swift Argument Parser
+
+The command-line interface will use Apple's `swift-argument-parser` package.
+Its declarative validation, generated help, and typed option parsing belong at
+the executable boundary; parsed values will be passed to the existing library
+modules for coverage reading, Git discovery, calculation, and rendering. The
+dependency is deferred until the command-line product phase and is not part of
+the current library implementation slice.
+
 ## Pending
 
 ### P-001: JSON compatibility policy
