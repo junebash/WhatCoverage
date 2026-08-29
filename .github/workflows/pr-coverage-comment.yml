@@ -8,7 +8,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: coverage-comment-${{ github.event.workflow_run.head_repository_id }}-${{ github.event.workflow_run.head_branch }}
+  group: coverage-comment-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:
@@ -39,9 +39,10 @@ jobs:
               return;
             }
 
+            const headRepositoryID = run.head_repository?.id;
             const matchesRun = (pr) => pr.head.sha === run.head_sha
               && pr.head.ref === run.head_branch
-              && pr.head.repo?.id === run.head_repository_id;
+              && pr.head.repo?.id === headRepositoryID;
             let candidates = run.pull_requests || [];
             if (candidates.length === 0) {
               candidates = await github.paginate(github.rest.pulls.list, {
@@ -156,7 +157,7 @@ jobs:
           COMMENT_BODY: ${{ needs.prepare.outputs.body }}
           RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          RUN_HEAD_REPOSITORY_ID: ${{ github.event.workflow_run.head_repository_id }}
+          RUN_HEAD_REPOSITORY_ID: ${{ github.event.workflow_run.head_repository.id }}
         with:
           script: |
             const pr = await github.rest.pulls.get({
