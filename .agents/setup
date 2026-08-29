@@ -8,6 +8,17 @@ REPO_ROOT="$(pwd)"
 
 log() { printf '\n[setup] %s\n' "$*"; }
 
+as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1 && sudo -n true; then
+    sudo -n "$@"
+  else
+    echo "[setup] ERROR: root privileges are required to install the Swift toolchain" >&2
+    exit 1
+  fi
+}
+
 SWIFT_VERSION="6.2.1"
 SWIFT_PLATFORM="debian12"
 SWIFT_INSTALL_DIR="/opt/swift"
@@ -47,12 +58,13 @@ install_swift_runtime_packages() {
   fi
 
   log "Installing Swift runtime packages: ${missing[*]}"
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+  as_root apt-get update
+  as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
 }
 
 install_swift_toolchain() {
-  if [ -x "${SWIFT_INSTALL_DIR}/usr/bin/swift" ]; then
+  if [ -x "${SWIFT_INSTALL_DIR}/usr/bin/swift" ] \
+    && "${SWIFT_INSTALL_DIR}/usr/bin/swift" --version | grep -Fq "Swift version ${SWIFT_VERSION}"; then
     log "Swift ${SWIFT_VERSION} toolchain already present at ${SWIFT_INSTALL_DIR}"
     return
   fi
@@ -62,10 +74,10 @@ install_swift_toolchain() {
   curl -fsSL --retry 3 -o "$tarball" "$SWIFT_URL"
 
   log "Extracting Swift toolchain to ${SWIFT_INSTALL_DIR}"
-  rm -rf "${SWIFT_INSTALL_DIR}.tmp" "${SWIFT_INSTALL_DIR}"
-  mkdir -p "${SWIFT_INSTALL_DIR}.tmp"
-  tar -xzf "$tarball" -C "${SWIFT_INSTALL_DIR}.tmp" --strip-components=1
-  mv "${SWIFT_INSTALL_DIR}.tmp" "$SWIFT_INSTALL_DIR"
+  as_root rm -rf "${SWIFT_INSTALL_DIR}.tmp" "${SWIFT_INSTALL_DIR}"
+  as_root mkdir -p "${SWIFT_INSTALL_DIR}.tmp"
+  as_root tar -xzf "$tarball" -C "${SWIFT_INSTALL_DIR}.tmp" --strip-components=1
+  as_root mv "${SWIFT_INSTALL_DIR}.tmp" "$SWIFT_INSTALL_DIR"
   rm -f "$tarball"
 }
 
@@ -74,9 +86,8 @@ link_swift_binaries() {
   # shells (Amp, supervised services) get them without profile changes.
   local bin
   for bin in "${SWIFT_INSTALL_DIR}"/usr/bin/*; do
-    ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
+    as_root ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
   done
-  chmod +x /usr/local/bin/swift* 2>/dev/null || true
 }
 
 run_timed() {
