@@ -10,7 +10,10 @@ versioned JSON rendering, and an LLVM-to-Git-to-report integration test. Live
 `.xcresult` regeneration remains a documented macOS/Xcode verification step
 because the development orb is Linux.
 
-**Next:** Phase 6, the command-line product using Swift Argument Parser.
+**Status:** Phases 1–6 are implemented. The command-line product uses Swift
+Argument Parser to compose the readers, Git provider, calculator, and renderers;
+it supports inferred or explicit input formats, both outputs, path remapping,
+threshold gating, and stable exit statuses.
 
 ## Phase 1: Domain model and diff calculation
 
@@ -135,6 +138,14 @@ not-applicable results.
 report and policy outcome.
 
 ## Phase 6: Command-line product
+
+**Completed:** The `what-coverage` command validates its complete interface
+before reading artifacts or Git history, infers `.json` and `.xcresult` inputs
+unless overridden, writes Markdown and JSON independently, and preserves reports
+when a threshold returns exit status 2. Focused parser and LLVM end-to-end tests
+cover format selection, invalid invocation, remapping, output writing, policy
+failure, and not-applicable behavior. Xcode orchestration reuses the existing
+reader; its platform-specific tool behavior remains covered by reader fixtures.
 
 **Outcome:** Users can run the complete artifact-to-report workflow locally or
 in any CI provider.

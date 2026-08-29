@@ -88,6 +88,14 @@ required, or adding an enum value requires a new schema version. Version 1 omits
 requested, `threshold` when no threshold was configured, and policy `actual`
 unless the policy failed.
 
+### D-012: Keep CLI exit statuses stable
+
+The executable returns 0 for a successful calculation, including a
+not-applicable result; 2 for a completed calculation that failed its threshold;
+64 for invalid invocation; 65 for a coverage input failure; 66 for a Git
+comparison failure; and 74 for report-output failure. The threshold result is
+evaluated after writing each requested output so CI can retain diagnostics.
+
 ## Pending
 
 None.

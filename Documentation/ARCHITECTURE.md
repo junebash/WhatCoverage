@@ -105,12 +105,12 @@ to two decimal places for display while JSON preserves the model's full value.
 
 ### WhatCoverage CLI
 
-Validates arguments, selects a reader, coordinates Git and coverage input,
-writes requested reports, prints diagnostics, and maps typed outcomes to exit
-statuses. It will use Apple's `swift-argument-parser` for the command definition,
-argument validation, and generated help while keeping all coverage behavior in
-the focused library modules. That dependency is introduced with the CLI phase,
-not by the current library implementation.
+Uses Apple's `swift-argument-parser` to validate arguments, infer or select a
+reader, coordinate Git and coverage input, write requested reports, print
+diagnostics, and map typed outcomes to exit statuses. Its workflow only composes
+the focused library modules: it contains no coverage calculation, rendering, or
+Git parsing logic. Argument errors occur before input parsing or Git work;
+threshold failures occur only after every requested report has been written.
 
 ## Report contract
 

@@ -14,6 +14,9 @@ let package = Package(
         .library(name: "ReportRendering", targets: ["ReportRendering"]),
         .executable(name: "what-coverage", targets: ["WhatCoverage"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
+    ],
     targets: [
         .target(name: "CoverageModel"),
         .target(name: "CoverageReaders", dependencies: ["CoverageModel", "ProcessSupport"]),
@@ -23,7 +26,13 @@ let package = Package(
         .target(name: "ReportRendering", dependencies: ["CoverageModel"]),
         .executableTarget(
             name: "WhatCoverage",
-            dependencies: ["CoverageReaders", "DiffCoverage", "GitDiff"]
+            dependencies: [
+                "CoverageReaders",
+                "DiffCoverage",
+                "GitDiff",
+                "ReportRendering",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]
         ),
         .testTarget(name: "CoverageModelTests", dependencies: ["CoverageModel"]),
         .testTarget(
@@ -37,6 +46,13 @@ let package = Package(
             name: "ReportRenderingTests",
             dependencies: ["CoverageModel", "DiffCoverage", "ReportRendering"],
             resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "WhatCoverageTests",
+            dependencies: [
+                "WhatCoverage",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]
         ),
     ]
 )
