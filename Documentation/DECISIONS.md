@@ -96,6 +96,17 @@ not-applicable result; 2 for a completed calculation that failed its threshold;
 comparison failure; and 74 for report-output failure. The threshold result is
 evaluated after writing each requested output so CI can retain diagnostics.
 
+### D-013: Publish native archives with a tested Linux baseline
+
+Each semantic-release GitHub Release publishes separately native-built macOS
+arm64 and x86_64 archives and a Linux x86_64 archive. The Linux binary is built
+in Swift 6.2.1's Ubuntu 22.04 image with the Swift standard library statically
+linked; it still dynamically uses glibc and is therefore supported on glibc
+2.35+ systems, specifically tested on Debian 12 and Ubuntu 22.04. Linux arm64
+is not published because standard hosted runners do not provide a reliable
+native arm64 Swift build without a paid larger runner. Every archive is
+smoke-tested before publication and covered by a release-level SHA-256 manifest.
+
 ## Pending
 
 None.

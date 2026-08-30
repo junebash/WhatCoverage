@@ -10,14 +10,49 @@ service. The build that produces the coverage artifact remains a separate step.
 
 ## Requirements
 
-- Swift 6.2 or newer (the package declares Swift tools version 6.2)
+- A prebuilt binary for macOS 13+ (Apple Silicon or Intel) or Debian 12+/Ubuntu
+  22.04+ x86_64. Linux releases require glibc 2.35+ and Git.
 - Git and enough local history to resolve the requested revisions
-- macOS 13 or newer for the package's declared Apple platform
 - Xcode 16 or newer, including `xcrun`, to read `.xcresult` input
 
-LLVM JSON input is decoded directly. Xcode input is macOS-only because its reader
-invokes `xcresulttool` and `xccov`; the library's fixture-based tests are otherwise
+Building from source instead requires Swift 6.2 or newer. LLVM JSON input is
+decoded directly. Xcode input is macOS-only because its reader invokes
+`xcresulttool` and `xccov`; the library's fixture-based tests are otherwise
 platform-neutral and also run in the project's Linux development orb.
+
+## Install a release binary
+
+Each GitHub Release includes native `macos-arm64`, `macos-x86_64`, and
+`linux-x86_64` archives plus `SHA256SUMS`. Pin the version you choose; do not
+pipe an unpinned network response into a shell. For example, install the first
+binary-bearing release, v0.3.0, on Linux x86_64:
+
+```sh
+version=0.3.0
+archive="what-coverage-v${version}-linux-x86_64.tar.gz"
+base="https://github.com/junebash/WhatCoverage/releases/download/v${version}"
+curl -fLO "$base/$archive"
+curl -fLO "$base/SHA256SUMS"
+grep " $archive$" SHA256SUMS | sha256sum --check
+tar -xzf "$archive"
+install -m 755 what-coverage ~/.local/bin/what-coverage
+```
+
+On macOS, substitute `macos-arm64` or `macos-x86_64` in the archive name and
+verify with `shasum -a 256 -c` after extracting the matching line from
+`SHA256SUMS`. The checked-in installer offers the same pinned, checksum-verified
+flow:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/junebash/WhatCoverage/v0.3.0/scripts/install.sh
+bash install.sh --version 0.3.0 --prefix ~/.local
+```
+
+Add `~/.local/bin` to `PATH` if needed, then confirm the installed archive:
+
+```sh
+what-coverage --help
+```
 
 ## Build
 
