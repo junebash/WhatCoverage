@@ -103,6 +103,14 @@ crosses the rendering boundary. JSON version 1 is published as
 `Documentation/whatcoverage-report-v1.schema.json`; Markdown formats percentages
 to two decimal places for display while JSON preserves the model's full value.
 
+The same module owns the PR-comment boundary for a previously rendered JSON
+report. `PRCoverageReportValidator` treats workflow artifacts as untrusted,
+enforcing the version-1 contract plus strict path, line, aggregate, policy, and
+size limits before `PRCoverageCommentRenderer` creates bounded Markdown and
+escaped source excerpts. The `what-coverage-pr-comment` executable is a thin
+workflow adapter for selecting validated source paths and emitting the encoded
+comment body; it does not call GitHub APIs or recalculate coverage policy.
+
 ### WhatCoverage CLI
 
 Uses Apple's `swift-argument-parser` to validate arguments, infer or select a

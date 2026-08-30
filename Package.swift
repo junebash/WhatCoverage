@@ -16,6 +16,7 @@ let package = Package(
         .library(name: "ProcessSupport", targets: ["ProcessSupport"]),
         .library(name: "ReportRendering", targets: ["ReportRendering"]),
         .executable(name: "what-coverage", targets: ["WhatCoverage"]),
+        .executable(name: "what-coverage-pr-comment", targets: ["WhatCoveragePRComment"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
@@ -36,6 +37,10 @@ let package = Package(
                 "ReportRendering",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
+        ),
+        .executableTarget(
+            name: "WhatCoveragePRComment",
+            dependencies: ["ReportRendering"]
         ),
         .testTarget(name: "CoverageModelTests", dependencies: ["CoverageModel"]),
         .testTarget(

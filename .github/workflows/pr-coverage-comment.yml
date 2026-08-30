@@ -77,6 +77,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Build trusted comment renderer
+        run: swift build --product what-coverage-pr-comment
       - name: Download report without executing it
         if: ${{ steps.context.outputs.artifact-id != '' }}
         uses: actions/download-artifact@v4
@@ -86,42 +88,55 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           path: ${{ runner.temp }}/whatcoverage-report
           merge-multiple: true
-      - name: Fetch bounded source excerpts from the current PR head
+      - name: Validate report and select bounded source requests
+        id: source-request
         if: ${{ steps.context.outputs.artifact-id != '' }}
+        continue-on-error: true
+        env:
+          REPORT_PATH: ${{ runner.temp }}/whatcoverage-report/what-coverage-report.json
+          REQUEST_PATH: ${{ runner.temp }}/whatcoverage-source-request.json
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          .build/debug/what-coverage-pr-comment source-request \
+            --report "$REPORT_PATH" \
+            --head "$RUN_HEAD_SHA" \
+            > "$REQUEST_PATH"
+      - name: Fetch bounded source excerpts from the current PR head
+        if: ${{ steps.source-request.outcome == 'success' }}
         uses: actions/github-script@v7
         env:
-          REPORT_DIRECTORY: ${{ runner.temp }}/whatcoverage-report
+          REQUEST_PATH: ${{ runner.temp }}/whatcoverage-source-request.json
           SOURCES_PATH: ${{ runner.temp }}/whatcoverage-sources.json
           RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           PR_NUMBER: ${{ steps.context.outputs.pr-number }}
         with:
           script: |
             const fs = require('fs');
-            const { LIMITS, validateReport } = require('./.github/scripts/render-pr-coverage-comment');
-            const reportPath = `${process.env.REPORT_DIRECTORY}/what-coverage-report.json`;
             try {
-              if (fs.readdirSync(process.env.REPORT_DIRECTORY).length !== 1 || fs.statSync(reportPath).size > 1024 * 1024) throw new Error('expected one bounded report file');
-              const report = validateReport(JSON.parse(fs.readFileSync(reportPath, 'utf8')), process.env.RUN_HEAD_SHA);
+              const request = JSON.parse(fs.readFileSync(process.env.REQUEST_PATH, 'utf8'));
+              if (!Array.isArray(request.paths)
+                  || !Number.isSafeInteger(request.sourceFiles)
+                  || !Number.isSafeInteger(request.sourceBytesPerFile)
+                  || !Number.isSafeInteger(request.sourceBytesTotal)) throw new Error('invalid source request');
               const pr = await github.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: Number(process.env.PR_NUMBER) });
               const run = context.payload.workflow_run;
               if (pr.data.head.sha !== run.head_sha || pr.data.head.ref !== run.head_branch || pr.data.head.repo?.id !== run.head_repository?.id) throw new Error('PR head changed before source retrieval');
-              const sources = {}; let attempts = 0; let bytes = 0;
-              for (const file of report.files.filter((file) => file.uncoveredLines.length > 0)) {
-                if (attempts >= LIMITS.sourceAttempts || Object.keys(sources).length >= LIMITS.sourceFiles) break;
-                attempts += 1;
+              const sources = {}; let bytes = 0;
+              for (const sourcePath of request.paths) {
+                if (Object.keys(sources).length >= request.sourceFiles) break;
                 try {
-                  const response = await github.rest.repos.getContent({ owner: pr.data.head.repo.owner.login, repo: pr.data.head.repo.name, path: file.path, ref: run.head_sha });
+                  const response = await github.rest.repos.getContent({ owner: pr.data.head.repo.owner.login, repo: pr.data.head.repo.name, path: sourcePath, ref: run.head_sha });
                   const item = response.data;
-                  if (Array.isArray(item) || item.type !== 'file' || item.path !== file.path || item.encoding !== 'base64' || item.size > LIMITS.sourceBytesPerFile || typeof item.content !== 'string') continue;
+                  if (Array.isArray(item) || item.type !== 'file' || item.path !== sourcePath || item.encoding !== 'base64' || item.size > request.sourceBytesPerFile || typeof item.content !== 'string') continue;
                   const encoded = item.content.replace(/\s/g, '');
                   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) continue;
                   const content = Buffer.from(encoded, 'base64');
-                  if (content.length > LIMITS.sourceBytesPerFile || bytes + content.length > LIMITS.sourceBytesTotal || content.includes(0)) continue;
+                  if (content.length > request.sourceBytesPerFile || bytes + content.length > request.sourceBytesTotal || content.includes(0)) continue;
                   const text = new TextDecoder('utf-8', { fatal: true }).decode(content);
-                  sources[file.path] = text; bytes += content.length;
+                  sources[sourcePath] = text; bytes += content.length;
                 } catch (error) {
                   if (error.status === 403 || error.status === 429) break;
-                  core.notice(`Source excerpt unavailable for ${file.path}`);
+                  core.notice(`Source excerpt unavailable for ${sourcePath}`);
                 }
               }
               fs.writeFileSync(process.env.SOURCES_PATH, JSON.stringify(sources), { mode: 0o600 });
@@ -132,34 +147,17 @@ jobs:
       - id: render
         name: Validate and render comment
         env:
-          REPORT_DIRECTORY: ${{ runner.temp }}/whatcoverage-report
+          REPORT_PATH: ${{ runner.temp }}/whatcoverage-report/what-coverage-report.json
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           SOURCES_PATH: ${{ runner.temp }}/whatcoverage-sources.json
         run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
-          const { render, validateReport } = require('./.github/scripts/render-pr-coverage-comment');
-
-          const marker = '<!-- whatcoverage:pr-report:v1 -->';
-          const fallback = [marker, '## WhatCoverage', '', `⚠️ Coverage did not produce a valid report. [View the workflow run](${process.env.RUN_URL}).`].join(String.fromCharCode(10));
-          function output(body) {
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `body=${Buffer.from(body).toString('base64')}${String.fromCharCode(10)}`);
-          }
-          try {
-            const files = fs.readdirSync(process.env.REPORT_DIRECTORY);
-            if (files.length !== 1 || files[0] !== 'what-coverage-report.json') throw new Error('expected one report file');
-            const reportPath = path.join(process.env.REPORT_DIRECTORY, files[0]);
-            if (fs.statSync(reportPath).size > 1024 * 1024) throw new Error('report is too large');
-            const report = validateReport(JSON.parse(fs.readFileSync(reportPath, 'utf8')), process.env.RUN_HEAD_SHA);
-            const sources = JSON.parse(fs.readFileSync(process.env.SOURCES_PATH, 'utf8'));
-            output(render(report, sources).replace('RUN_URL', process.env.RUN_URL));
-          } catch (error) {
-            console.log(`Rendering a fallback coverage comment: ${error.message}`);
-            output(fallback);
-          }
-          NODE
+          body=$(.build/debug/what-coverage-pr-comment render \
+            --report "$REPORT_PATH" \
+            --head "$RUN_HEAD_SHA" \
+            --sources "$SOURCES_PATH" \
+            --run-url "$RUN_URL")
+          echo "body=$body" >> "$GITHUB_OUTPUT"
   comment:
     needs: prepare
     if: ${{ needs.prepare.outputs.pr-number != '' && needs.prepare.outputs.body != '' }}

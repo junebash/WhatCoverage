@@ -30,7 +30,8 @@ The workflow is deliberately split in two:
    It checks out and tests PR code, but has no write token and keeps checkout
    credentials out of Git configuration. It uploads only the JSON report.
 2. **PR Coverage Comment** is triggered by completion of that workflow. It
-   checks out only the trusted default-branch renderer, never PR code. With
+   checks out and builds only the trusted default-branch Swift renderer, never
+   PR code. With
    `actions: read`, `contents: read`, and `pull-requests: read`, it independently
    matches the run to the current PR, downloads the artifact, validates all
    counts, paths, and line lists against strict size limits, then fetches small
@@ -46,6 +47,12 @@ lines, line width, file rows, and total size. Paths cannot be absolute or use
 traversal segments, and malformed, binary, missing, or oversized source is
 omitted. If a report is missing or invalid, it posts a short failure message
 that links to the workflow run instead.
+
+The validator and renderer live in Swift's `ReportRendering` target, with the
+workflow-facing `what-coverage-pr-comment` executable selecting bounded source
+requests and rendering the final base64-encoded body. The GitHub Script steps
+remain limited to trusted run/PR association, Contents API retrieval, and
+comment upsert operations.
 
 The comment begins with a stable hidden marker. Reruns update that comment
 rather than creating duplicates, and the workflow removes accidental duplicate
