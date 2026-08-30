@@ -24,4 +24,8 @@ import Testing
         let ratio = try #require(Percentage.ratio(covered: 2, executable: 3))
         #expect(abs(ratio.value - 200.0 / 3.0) < 0.000_001)
     }
+
+    @Test func policyOutcomeHasPassingStatusLabel() {
+        #expect(PolicyOutcome.passed(threshold: nil).statusLabel == "Passed")
+    }
 }
