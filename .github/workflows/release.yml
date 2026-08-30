@@ -46,6 +46,13 @@ jobs:
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
           swift --version | grep -Eq 'Swift version 6\.2\.'
+      - name: Install Linux binary inspection tools
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --yes --no-install-recommends binutils file
       - name: Build, package, and smoke-test executable
         run: >-
           .github/scripts/package-release-binary.sh
