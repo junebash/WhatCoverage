@@ -118,8 +118,8 @@ Run `what-coverage --help` for the generated option reference. The key behavior
 is:
 
 - `--input` and `--base` are required.
-- At least one of `--markdown-output` or `--json-output` is required; both may be
-  supplied, but they must be different paths.
+- At least one of `--markdown-output`, `--json-output`, or `--html-output` is
+  required. Any combination may be supplied, but all output paths must differ.
 - `--format llvm` or `--format xcode` overrides extension inference. Without it,
   `.json` means LLVM and `.xcresult` means Xcode.
 - `--head` defaults to `HEAD`.
@@ -177,6 +177,14 @@ values, and actions other than `include` or `exclude` are invocation errors.
 No TOML dependency is used: the implementation intentionally accepts only this
 small, validated TOML subset rather than introducing a supply-chain dependency
 for two string fields.
+
+### HTML reports
+
+`--html-output report.html` writes a self-contained, escaped HTML summary from
+the same calculated report document as Markdown and JSON. It includes each file's
+covered and uncovered changed-line numbers, but never reads or embeds source
+content. Requested Markdown, JSON, and HTML files are all written before a
+threshold-failure exit status is returned.
 
 ### Exit statuses
 
