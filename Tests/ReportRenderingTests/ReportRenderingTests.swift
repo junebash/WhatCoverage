@@ -47,6 +47,23 @@ import Testing
         #expect(markdown.contains(#"``Sources/A\|`B.swift``"#))
     }
 
+    @Test func htmlEscapesPathsAndShowsExistingLineMetadata() throws {
+        let path = try RepositoryPath("Sources/A<&\"'.swift")
+        let coverage = try NormalizedCoverage(files: [
+            FileCoverage(path: path, lines: [try LineCoverage(line: 2, executionCount: 1), try LineCoverage(line: 4, executionCount: 0)]),
+        ])
+        let document = CoverageReportDocument(metadata: metadata(), result: DiffCoverageCalculator.calculate(
+            coverage: coverage,
+            changes: try ChangedLines(files: [ChangedFile(path: path, addedLines: [2, 4])])
+        ))
+
+        let html = HTMLReportRenderer().render(document)
+
+        #expect(html.contains("Sources/A&lt;&amp;&quot;&#39;.swift"))
+        #expect(html.contains("<td class=\"covered\">2</td>"))
+        #expect(html.contains("<td class=\"uncovered\">4</td>"))
+    }
+
     private func measurableDocument(minimum: Double) throws -> CoverageReportDocument {
         let a = try RepositoryPath("Sources/A.swift")
         let b = try RepositoryPath("Sources/B.swift")

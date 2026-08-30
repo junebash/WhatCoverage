@@ -42,6 +42,7 @@ public struct WhatCoverageConfiguration: Sendable {
     public let capturedSourceRoot: String?
     public let markdownOutput: String?
     public let jsonOutput: String?
+    public let htmlOutput: String?
     public let minimum: Percentage?
     public let pathSelection: PathSelection
 
@@ -54,6 +55,7 @@ public struct WhatCoverageConfiguration: Sendable {
         capturedSourceRoot: String? = nil,
         markdownOutput: String? = nil,
         jsonOutput: String? = nil,
+        htmlOutput: String? = nil,
         minimum: Percentage? = nil,
         pathSelection: PathSelection = PathSelection()
     ) {
@@ -65,6 +67,7 @@ public struct WhatCoverageConfiguration: Sendable {
         self.capturedSourceRoot = capturedSourceRoot
         self.markdownOutput = markdownOutput
         self.jsonOutput = jsonOutput
+        self.htmlOutput = htmlOutput
         self.minimum = minimum
         self.pathSelection = pathSelection
     }
@@ -163,6 +166,9 @@ public struct WhatCoverageWorkflow: Sendable {
             if let jsonOutput = configuration.jsonOutput {
                 try JSONReportRenderer().render(document).write(to: outputURL(jsonOutput, repository: root))
             }
+            if let htmlOutput = configuration.htmlOutput {
+                try Data(HTMLReportRenderer().render(document).utf8).write(to: outputURL(htmlOutput, repository: root))
+            }
         } catch {
             throw WhatCoverageError.output(String(describing: error))
         }
@@ -198,6 +204,7 @@ public struct WhatCoverageCommand: ParsableCommand {
     @Option(help: "Original absolute source root recorded in the coverage artifact.") var capturedSourceRoot: String?
     @Option(help: "Write a Markdown report to this path.") var markdownOutput: String?
     @Option(help: "Write a JSON report to this path.") var jsonOutput: String?
+    @Option(help: "Write an HTML report to this path.") var htmlOutput: String?
     @Option(help: "Minimum changed-line coverage percentage (0 through 100).") var minimum: Double?
     @Option(help: "Read path selection rules from this TOML file (relative paths are rooted at the compared repository).") var config: String?
     @Flag(name: .long, help: "Do not load the repository's .whatcoverage.toml file.") var noConfig = false
@@ -217,11 +224,12 @@ public struct WhatCoverageCommand: ParsableCommand {
     }
 
     public mutating func validate() throws {
-        guard markdownOutput != nil || jsonOutput != nil else {
-            throw ValidationError("Specify --markdown-output, --json-output, or both.")
+        guard markdownOutput != nil || jsonOutput != nil || htmlOutput != nil else {
+            throw ValidationError("Specify --markdown-output, --json-output, --html-output, or a combination.")
         }
-        guard markdownOutput != jsonOutput || markdownOutput == nil else {
-            throw ValidationError("Markdown and JSON output paths must be different.")
+        let outputs = [markdownOutput, jsonOutput, htmlOutput].compactMap { $0 }
+        guard Set(outputs).count == outputs.count else {
+            throw ValidationError("Markdown, JSON, and HTML output paths must be different.")
         }
         if let capturedSourceRoot, !capturedSourceRoot.hasPrefix("/") {
             throw ValidationError("--captured-source-root must be an absolute path.")
@@ -246,6 +254,7 @@ public struct WhatCoverageCommand: ParsableCommand {
             capturedSourceRoot: capturedSourceRoot,
             markdownOutput: markdownOutput,
             jsonOutput: jsonOutput,
+            htmlOutput: htmlOutput,
             minimum: minimum,
             pathSelection: pathSelection
         )
