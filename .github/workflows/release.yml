@@ -89,8 +89,9 @@ jobs:
             bash -ec '
               apt-get update
               apt-get install --yes --no-install-recommends git
+              cd /packages
+              sha256sum --check what-coverage-linux-x86_64.tar.gz.sha256
               cd /tmp
-              sha256sum --check /packages/what-coverage-linux-x86_64.tar.gz.sha256
               tar -xzf /packages/what-coverage-linux-x86_64.tar.gz
               ./what-coverage --help >/dev/null
             '
