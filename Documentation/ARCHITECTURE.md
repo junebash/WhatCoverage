@@ -112,6 +112,13 @@ the focused library modules: it contains no coverage calculation, rendering, or
 Git parsing logic. Argument errors occur before input parsing or Git work;
 threshold failures occur only after every requested report has been written.
 
+The CLI resolves the Git top-level directory before loading `.whatcoverage.toml`.
+Its strict version-1 parser validates ordered path rules, then filters changed
+head-side files once before `DiffCoverageCalculator`. This single boundary keeps
+Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
+artifacts consistent. Configuration deliberately does not set thresholds or
+other CLI options in version 1.
+
 ## Report contract
 
 The report model needs enough context to render all initial formats and support
