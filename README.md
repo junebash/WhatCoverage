@@ -17,7 +17,7 @@ service. The build that produces the coverage artifact remains a separate step.
 
 Building from source instead requires Swift 6.2 or newer. LLVM JSON input is
 decoded directly. Xcode input is macOS-only because its reader invokes
-`xcresulttool` and `xccov`; the library's fixture-based tests are otherwise
+`xcresulttool` and `xccov`; the reader's fixture-based tests are otherwise
 platform-neutral and also run in the project's Linux development orb.
 
 ## Install a release binary

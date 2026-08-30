@@ -9,12 +9,6 @@ let package = Package(
         .macOS(.v13),
     ],
     products: [
-        .library(name: "CoverageModel", targets: ["CoverageModel"]),
-        .library(name: "CoverageReaders", targets: ["CoverageReaders"]),
-        .library(name: "DiffCoverage", targets: ["DiffCoverage"]),
-        .library(name: "GitDiff", targets: ["GitDiff"]),
-        .library(name: "ProcessSupport", targets: ["ProcessSupport"]),
-        .library(name: "ReportRendering", targets: ["ReportRendering"]),
         .executable(name: "what-coverage", targets: ["WhatCoverage"]),
         .executable(name: "what-coverage-pr-comment", targets: ["WhatCoveragePRComment"]),
     ],

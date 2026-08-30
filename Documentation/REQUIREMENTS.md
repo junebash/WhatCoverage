@@ -112,4 +112,4 @@ design decisions.
 - **DELTA-002:** Report project, target, and file coverage changes independently
   of the Git line diff.
 - **INT-001:** Provide optional source-hosting integrations without coupling them
-  to the calculation library.
+  to the core calculation.

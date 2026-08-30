@@ -60,10 +60,10 @@ output formatting.
 
 The command-line interface will use Apple's `swift-argument-parser` package.
 Its declarative validation, generated help, and typed option parsing belong at
-the executable boundary; parsed values will be passed to the existing library
+the executable boundary; parsed values will be passed to the existing internal
 modules for coverage reading, Git discovery, calculation, and rendering. The
 dependency is deferred until the command-line product phase and is not part of
-the current library implementation slice.
+the current internal implementation slice.
 
 ### D-010: Reject Xcode result bundles with multiple coverage archives
 

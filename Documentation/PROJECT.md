@@ -47,7 +47,8 @@ WhatCoverage must also work locally when given the same inputs.
 
 - **Artifact in, report out.** Build orchestration is outside the tool.
 - **One domain model.** Format-specific details stop at parser boundaries.
-- **Library first.** Parsing and calculation remain usable without the CLI.
+- **Focused internal modules.** Parsing and calculation remain isolated from CLI
+  concerns for implementation clarity and testability.
 - **Typed failures.** Missing input, malformed input, Git failure, and a failed
   coverage policy are not interchangeable.
 - **Deterministic output.** The same artifact, repository state, and arguments

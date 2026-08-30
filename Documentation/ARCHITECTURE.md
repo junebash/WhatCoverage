@@ -2,7 +2,7 @@
 
 ## Shape
 
-WhatCoverage is a command-line executable over a small set of focused library
+WhatCoverage is a command-line executable over a small set of focused internal
 modules. The CLI coordinates dependencies; it does not contain coverage logic.
 
 ```text
@@ -116,8 +116,8 @@ comment body; it does not call GitHub APIs or recalculate coverage policy.
 Uses Apple's `swift-argument-parser` to validate arguments, infer or select a
 reader, coordinate Git and coverage input, write requested reports, print
 diagnostics, and map typed outcomes to exit statuses. Its workflow only composes
-the focused library modules: it contains no coverage calculation, rendering, or
-Git parsing logic. Argument errors occur before input parsing or Git work;
+the focused internal modules: it contains no coverage calculation, rendering,
+or Git parsing logic. Argument errors occur before input parsing or Git work;
 threshold failures occur only after every requested report has been written.
 
 The CLI resolves the Git top-level directory before loading `.whatcoverage.toml`.

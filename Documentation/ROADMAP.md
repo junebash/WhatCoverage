@@ -4,11 +4,11 @@ Each phase ends with tested, usable behavior and a documentation update. Plans
 for a phase should be written immediately before implementation so they can
 reflect what earlier work taught us.
 
-**Status:** Phases 1–5 implemented with library APIs, fixtures, pure calculation
-tests, Git integration tests, both coverage readers, deterministic Markdown and
-versioned JSON rendering, and an LLVM-to-Git-to-report integration test. Live
-`.xcresult` regeneration remains a documented macOS/Xcode verification step
-because the development orb is Linux.
+**Status:** Phases 1–5 implemented with internal module APIs, fixtures, pure
+calculation tests, Git integration tests, both coverage readers, deterministic
+Markdown and versioned JSON rendering, and an LLVM-to-Git-to-report integration
+test. Live `.xcresult` regeneration remains a documented macOS/Xcode
+verification step because the development orb is Linux.
 
 **Status:** Phases 1–6 are implemented. The command-line product uses Swift
 Argument Parser to compose the readers, Git provider, calculator, and renderers;
@@ -48,7 +48,8 @@ hunk parsing, both comparison modes, rename head paths, filtering, resolved
 revision metadata, and actionable failures are implemented and tested against
 fixtures and temporary repositories.
 
-**Outcome:** The library resolves head-side changed lines between two revisions.
+**Outcome:** The Git integration resolves head-side changed lines between two
+revisions.
 
 - Introduce an isolated process runner.
 - Implement merge-base-to-head as the default and direct comparison as an
@@ -84,7 +85,7 @@ and an artifact-to-Git-to-report integration path are implemented and tested.
 **Requirements:** IN-002–007.
 
 **Exit criteria:** An LLVM artifact and Git diff can produce an in-memory report
-through the public library API.
+through the internal module boundaries.
 
 ## Phase 4: Xcode coverage input
 
