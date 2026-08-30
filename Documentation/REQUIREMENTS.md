@@ -67,6 +67,9 @@ design decisions.
 - **OUT-005:** Ordering is deterministic.
 - **OUT-006:** Reports distinguish a valid policy failure from an operational
   failure.
+- **OUT-007:** HTML reports render the calculated report document with escaped
+  metadata and per-file covered/uncovered changed-line numbers without reading
+  source files or recalculating coverage.
 
 ## Command-line behavior
 

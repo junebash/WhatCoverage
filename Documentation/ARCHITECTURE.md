@@ -119,6 +119,10 @@ Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
 artifacts consistent. Configuration deliberately does not set thresholds or
 other CLI options in version 1.
 
+`HTMLReportRenderer` is another deterministic presentation of the same
+`CoverageReportDocument`; it neither accesses source files nor recalculates line
+coverage. This keeps the downloadable HTML report inside the renderer boundary.
+
 ## Report contract
 
 The report model needs enough context to render all initial formats and support
