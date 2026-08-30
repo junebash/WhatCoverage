@@ -113,11 +113,12 @@ Git parsing logic. Argument errors occur before input parsing or Git work;
 threshold failures occur only after every requested report has been written.
 
 The CLI resolves the Git top-level directory before loading `.whatcoverage.toml`.
-Its strict version-1 parser validates ordered path rules, then filters changed
-head-side files once before `DiffCoverageCalculator`. This single boundary keeps
+Its strict version-1 parser validates an optional minimum and ordered path rules,
+then filters changed head-side files once before `DiffCoverageCalculator`. An
+explicit `--minimum` takes precedence over the file. This single boundary keeps
 Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
-artifacts consistent. Configuration deliberately does not set thresholds or
-other CLI options in version 1.
+artifacts consistent. Threshold evaluation remains in the pure calculator; the
+configuration layer only selects its input value.
 
 ## Report contract
 

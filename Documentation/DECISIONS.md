@@ -107,6 +107,15 @@ is not published because standard hosted runners do not provide a reliable
 native arm64 Swift build without a paid larger runner. Every archive is
 smoke-tested before publication and covered by a release-level SHA-256 manifest.
 
+### D-014: Keep repository policy in the existing versioned configuration
+
+Version 1 `.whatcoverage.toml` accepts an optional `minimum` alongside path
+selection. The CLI loads both at the repository boundary, with `--minimum`
+taking precedence, and passes the selected typed percentage to `DiffCoverage`.
+This makes the PR requirement reviewable with the repository without duplicating
+threshold evaluation outside the functional core. Missing configuration means
+no threshold, while invalid configured values are invocation errors.
+
 ## Pending
 
 None.

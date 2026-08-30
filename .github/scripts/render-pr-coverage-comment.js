@@ -37,6 +37,8 @@ function validateCounts(counts, label) {
     || counts.covered + counts.uncovered !== counts.executable) invalid(label);
 }
 
+function validPercentage(value) { return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100; }
+
 function validateReport(report, headSHA) {
   if (!report || report.schemaVersion !== 1 || report.coverageInput?.kind !== 'llvm'
     || report.comparison?.resolvedHead !== headSHA || !Array.isArray(report.files)
@@ -58,6 +60,18 @@ function validateReport(report, headSHA) {
     if (lineTotal > LIMITS.linesTotal) invalid('too many lines');
   }
   if (covered !== report.totals.covered || uncovered !== report.totals.uncovered || executable !== report.totals.executable) invalid('aggregate counts');
+  const policy = report.policy;
+  const actual = executable === 0 ? null : covered * 100 / executable;
+  if (policy.threshold !== undefined && !validPercentage(policy.threshold)) invalid('policy threshold');
+  if (policy.status === 'failed') {
+    if (!validPercentage(policy.threshold) || !validPercentage(policy.actual)
+      || actual === null || Math.abs(policy.actual - actual) > Number.EPSILON * Math.max(1, actual)
+      || policy.actual >= policy.threshold) invalid('failed policy');
+  } else if (policy.actual !== undefined
+    || (policy.status === 'notApplicable') !== (actual === null)
+    || (policy.status === 'passed' && policy.threshold !== undefined && actual < policy.threshold)) {
+    invalid('policy outcome');
+  }
   return report;
 }
 
@@ -70,7 +84,12 @@ function safeSource(value) {
 
 function render(report, sources = {}) {
   const percent = report.totals.executable === 0 ? 'Not applicable' : `${(report.totals.covered * 100 / report.totals.executable).toFixed(2)}%`;
-  const status = report.policy.status === 'failed' ? '❌ Below the configured threshold' : '✅ Coverage check passed';
+  const threshold = report.policy.threshold === undefined ? null : `${report.policy.threshold.toFixed(2)}%`;
+  let status;
+  if (report.policy.status === 'failed') status = `❌ Failed: ${percent} is below the required ${threshold}`;
+  else if (report.policy.status === 'notApplicable') status = '➖ Not applicable: no changed executable lines';
+  else if (threshold) status = `✅ Passed: ${percent} meets the required ${threshold}`;
+  else status = '✅ Coverage check passed (no minimum configured)';
   const excerpts = [];
   let targets = 0; let renderedLines = 0; let unavailable = 0;
   for (const file of report.files) {

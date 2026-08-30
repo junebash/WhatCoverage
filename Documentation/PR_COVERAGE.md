@@ -8,11 +8,19 @@ policy outcome at a glance. A collapsed **Uncovered source** section shows a
 small, line-numbered excerpt around uncovered lines; the per-file table remains
 inside a separate `<details>` element.
 
-The report does not configure a minimum itself. Add `--minimum <percentage>` to
-the `what-coverage` invocation in
-[`.github/workflows/pr-coverage.yml`](../.github/workflows/pr-coverage.yml) to
-make the coverage policy a required check. A failed threshold still produces a
-report and comment because WhatCoverage writes outputs before returning status 2.
+The repository's [`.whatcoverage.toml`](../.whatcoverage.toml) sets the required
+changed-line coverage to 60%. The report step selects that file explicitly, so a
+missing or invalid policy configuration fails rather than silently running
+without a requirement. A measured result below 60% fails the check while exactly
+60% passes. Change `minimum` in that file to adjust the requirement; an explicit
+`--minimum` would override it. A failed threshold still produces and uploads the
+report because WhatCoverage writes outputs before returning status 2. The comment
+states the measured and required percentages for both passing and failing results.
+
+A diff with no changed executable lines is not applicable and succeeds. Missing
+or malformed coverage artifacts are operational failures, not 0% policy results;
+the PR check fails and the comment workflow posts its failure fallback when no
+valid report is available.
 
 ## Security model
 

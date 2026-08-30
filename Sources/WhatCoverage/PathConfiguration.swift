@@ -33,13 +33,25 @@ public struct PathSelection: Sendable {
     }
 }
 
+struct RepositoryConfiguration: Sendable {
+    let minimum: Percentage?
+    let pathSelection: PathSelection
+
+    init(minimum: Percentage? = nil, pathSelection: PathSelection = PathSelection()) {
+        self.minimum = minimum
+        self.pathSelection = pathSelection
+    }
+}
+
 enum PathConfigurationLoader {
-    static func load(from url: URL) throws -> PathSelection {
+    static func load(from url: URL) throws -> RepositoryConfiguration {
         let text: String
         do { text = try String(contentsOf: url, encoding: .utf8) }
         catch { throw WhatCoverageError.invocation("Cannot read configuration file \(url.path): \(error.localizedDescription)") }
 
         var version: Int?
+        var minimum: Percentage?
+        var hasMinimum = false
         var rules: [(line: Int, values: [String: String])] = []
         var currentRule: Int?
         for (index, rawLine) in text.split(omittingEmptySubsequences: false, whereSeparator: \Character.isNewline).enumerated() {
@@ -65,18 +77,26 @@ enum PathConfigurationLoader {
                     throw error(url, lineNumber, "duplicate key \(key) in paths rule \(currentRule + 1)")
                 }
                 rules[currentRule].values[key] = try string(value, url: url, line: lineNumber)
-            } else {
-                guard key == "schema_version" else { throw error(url, lineNumber, "unknown top-level key \(key)") }
+            } else if key == "schema_version" {
                 guard version == nil else { throw error(url, lineNumber, "duplicate key schema_version") }
                 guard let parsed = Int(value), !value.contains(".") else {
                     throw error(url, lineNumber, "schema_version must be an integer")
                 }
                 version = parsed
+            } else if key == "minimum" {
+                guard !hasMinimum else { throw error(url, lineNumber, "duplicate key minimum") }
+                guard let value = Double(value), value.isFinite, (0...100).contains(value) else {
+                    throw error(url, lineNumber, "minimum must be a finite percentage from 0 through 100")
+                }
+                minimum = try Percentage(value)
+                hasMinimum = true
+            } else {
+                throw error(url, lineNumber, "unknown top-level key \(key)")
             }
         }
         guard let version else { throw WhatCoverageError.invocation("\(url.path): missing required schema_version") }
         guard version == 1 else { throw WhatCoverageError.invocation("\(url.path): unsupported schema_version \(version); this executable supports version 1") }
-        return try PathSelection(rules: rules.enumerated().map { index, rule in
+        let pathSelection = try PathSelection(rules: rules.enumerated().map { index, rule in
             guard let pattern = rule.values["pattern"] else { throw error(url, rule.line, "paths rule \(index + 1) is missing pattern") }
             guard let actionText = rule.values["action"] else { throw error(url, rule.line, "paths rule \(index + 1) is missing action") }
             guard let action = PathRuleAction(rawValue: actionText) else {
@@ -85,6 +105,7 @@ enum PathConfigurationLoader {
             do { return try PathRule(pattern: pattern, action: action) }
             catch { throw Self.error(url, rule.line, "paths rule \(index + 1) has invalid pattern \(String(reflecting: pattern)): \(error)") }
         })
+        return RepositoryConfiguration(minimum: minimum, pathSelection: pathSelection)
     }
 
     private static func uncomment(_ line: String, url: URL, line number: Int) throws -> String {

@@ -85,9 +85,12 @@ design decisions.
 - **CLI-008:** The command discovers an optional `.whatcoverage.toml` only at the
   resolved compared repository root. `--config` selects one explicit file and
   `--no-config` disables automatic configuration loading.
-- **CLI-009:** Version 1 configuration path rules use deterministic, ordered
-  last-match-wins include/exclude selection over canonical repository-relative
-  paths. Invalid or unsafe configuration is an invocation error.
+- **CLI-009:** Version 1 configuration accepts an optional finite minimum from
+  0 through 100 and deterministic, ordered, last-match-wins path rules over
+  canonical repository-relative paths. Invalid or unsafe configuration is an
+  invocation error.
+- **CLI-010:** An explicit `--minimum` overrides the configured minimum;
+  `--no-config` disables both configured policy and path selection.
 
 ## Quality attributes
 

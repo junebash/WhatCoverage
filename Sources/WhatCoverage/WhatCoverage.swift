@@ -199,7 +199,7 @@ public struct WhatCoverageCommand: ParsableCommand {
     @Option(help: "Write a Markdown report to this path.") var markdownOutput: String?
     @Option(help: "Write a JSON report to this path.") var jsonOutput: String?
     @Option(help: "Minimum changed-line coverage percentage (0 through 100).") var minimum: Double?
-    @Option(help: "Read path selection rules from this TOML file (relative paths are rooted at the compared repository).") var config: String?
+    @Option(help: "Read coverage policy and path selection from this TOML file (relative paths are rooted at the compared repository).") var config: String?
     @Flag(name: .long, help: "Do not load the repository's .whatcoverage.toml file.") var noConfig = false
 
     public init() {}
@@ -234,9 +234,9 @@ public struct WhatCoverageCommand: ParsableCommand {
     }
 
     public mutating func run() throws {
-        let minimum = try minimum.map(Percentage.init)
         let repository = try Self.repositoryRoot(from: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
-        let pathSelection = try Self.pathSelection(config: config, noConfig: noConfig, repository: repository)
+        let fileConfiguration = try Self.fileConfiguration(config: config, noConfig: noConfig, repository: repository)
+        let minimum = try minimum.map(Percentage.init) ?? fileConfiguration.minimum
         let configuration = WhatCoverageConfiguration(
             input: input,
             format: format!,
@@ -247,7 +247,7 @@ public struct WhatCoverageCommand: ParsableCommand {
             markdownOutput: markdownOutput,
             jsonOutput: jsonOutput,
             minimum: minimum,
-            pathSelection: pathSelection
+            pathSelection: fileConfiguration.pathSelection
         )
         let status = try WhatCoverageWorkflow().run(configuration, repository: repository)
         if status != .success { throw ExitCode(rawValue: status.rawValue) }
@@ -259,8 +259,8 @@ public struct WhatCoverageCommand: ParsableCommand {
         throw ValidationError("Cannot infer the coverage format from \(input). Specify --format llvm or --format xcode.")
     }
 
-    static func pathSelection(config: String?, noConfig: Bool, repository: URL) throws -> PathSelection {
-        if noConfig { return PathSelection() }
+    static func fileConfiguration(config: String?, noConfig: Bool, repository: URL) throws -> RepositoryConfiguration {
+        if noConfig { return RepositoryConfiguration() }
         let url: URL
         if let config {
             url = config.hasPrefix("/") ? URL(fileURLWithPath: config) : repository.appending(path: config)
@@ -269,7 +269,7 @@ public struct WhatCoverageCommand: ParsableCommand {
             }
         } else {
             url = repository.appending(path: ".whatcoverage.toml")
-            guard FileManager.default.fileExists(atPath: url.path) else { return PathSelection() }
+            guard FileManager.default.fileExists(atPath: url.path) else { return RepositoryConfiguration() }
         }
         return try PathConfigurationLoader.load(from: url)
     }

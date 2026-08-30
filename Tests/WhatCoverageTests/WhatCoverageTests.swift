@@ -134,6 +134,7 @@ import Testing
         let automatic = repository.appending(path: ".whatcoverage.toml")
         try Data("""
         schema_version = 1
+        minimum = 60
         [[paths]]
         pattern = "**"
         action = "exclude"
@@ -141,13 +142,33 @@ import Testing
         pattern = "Sources/**"
         action = "include"
         """.utf8).write(to: automatic)
-        let selection = try WhatCoverageCommand.pathSelection(config: nil, noConfig: false, repository: repository)
-        #expect(selection.includes(try RepositoryPath("Sources/App.swift")))
-        #expect(!selection.includes(try RepositoryPath("Tests/AppTests.swift")))
-        #expect(try WhatCoverageCommand.pathSelection(config: nil, noConfig: true, repository: repository).includes(RepositoryPath("Tests/AppTests.swift")))
-        #expect(throws: WhatCoverageError.self) { try WhatCoverageCommand.pathSelection(config: "missing.toml", noConfig: false, repository: repository) }
+        let configuration = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        let expectedMinimum = try Percentage(60)
+        #expect(configuration.minimum == expectedMinimum)
+        #expect(configuration.pathSelection.includes(try RepositoryPath("Sources/App.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
+        let disabled = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: true, repository: repository)
+        #expect(disabled.minimum == nil)
+        #expect(disabled.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
+        #expect(throws: WhatCoverageError.self) { try WhatCoverageCommand.fileConfiguration(config: "missing.toml", noConfig: false, repository: repository) }
         try Data("schema_version = 1\nunknown = true\n".utf8).write(to: automatic)
-        #expect(throws: WhatCoverageError.self) { try WhatCoverageCommand.pathSelection(config: nil, noConfig: false, repository: repository) }
+        #expect(throws: WhatCoverageError.self) { try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository) }
+    }
+
+    @Test func rejectsInvalidConfiguredMinimums() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        let configuration = repository.appending(path: ".whatcoverage.toml")
+        for minimum in ["-1", "101", "nan", "\"60\""] {
+            try Data("schema_version = 1\nminimum = \(minimum)\n".utf8).write(to: configuration)
+            #expect(throws: WhatCoverageError.self) {
+                try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+            }
+        }
+        for minimum in ["0", "100"] {
+            try Data("schema_version = 1\nminimum = \(minimum)\n".utf8).write(to: configuration)
+            #expect(try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository).minimum?.value == Double(minimum))
+        }
     }
 
     @Test func pathSelectionChangesTotalsAndCanMakeCoverageNotApplicable() throws {

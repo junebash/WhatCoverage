@@ -126,8 +126,8 @@ is:
 - `--comparison merge-base` is the default and measures the merge base of
   `base` and `head` through `head`, equivalent to pull-request `base...head`
   semantics. `--comparison direct` measures literal `base..head` changes.
-- `--minimum` accepts a percentage from 0 through 100. Policy evaluation uses
-  the unrounded value.
+- `--minimum` accepts a percentage from 0 through 100 and overrides a configured
+  `minimum`. Policy evaluation uses the unrounded value.
 - The command discovers `.whatcoverage.toml` only at the resolved Git repository
   root (including when invoked from a subdirectory). `--config PATH` replaces
   that discovery; `--no-config` disables it. A missing discovered file preserves
@@ -139,14 +139,17 @@ Only executable lines added or modified on the head side contribute to the
 denominator. Deleted lines, binary files, and submodules do not. Renames use the
 head-side path.
 
-### Path selection configuration
+### Coverage configuration
 
-Path rules select changed files before coverage is calculated, so they affect
-file rows, totals, JSON, policy, exit status, and PR-comment artifacts equally.
-The first schema is deliberately limited to path selection:
+The versioned configuration can define a repository-wide minimum and path
+selection. A measured percentage equal to the minimum passes; one below it
+fails. Path rules select changed files before coverage is calculated, so they
+affect file rows, totals, JSON, policy, exit status, and PR-comment artifacts
+equally:
 
 ```toml
 schema_version = 1
+minimum = 60
 
 [[paths]]
 pattern = "Sources/**/*.swift"
@@ -171,19 +174,21 @@ brace expansion, negation, and escapes are not glob features.
 
 Patterns must be nonempty, relative, slash-separated, and canonical. Absolute,
 drive-rooted, backslash, empty-component, `.`, `..`, and embedded-`**` patterns
-are rejected. The parser strictly requires `schema_version = 1`, `[[paths]]`,
-and quoted `pattern`/`action` strings; unknown or duplicate keys, malformed
-values, and actions other than `include` or `exclude` are invocation errors.
-No TOML dependency is used: the implementation intentionally accepts only this
-small, validated TOML subset rather than introducing a supply-chain dependency
-for two string fields.
+are rejected. The parser strictly requires `schema_version = 1`; each optional
+`[[paths]]` table requires quoted `pattern` and `action` strings.
+`minimum` must be an unquoted, finite number from 0 through 100 and must precede
+the first `[[paths]]` table. It is optional, as are path rules. The parser
+rejects unknown or duplicate keys, malformed values, unsupported schema
+versions, and invalid rules as invocation errors. No TOML dependency is used:
+the implementation intentionally accepts only this small, validated TOML subset
+rather than introducing a supply-chain dependency.
 
 ### Exit statuses
 
 | Status | Meaning |
 | ---: | --- |
 | 0 | Report completed successfully, including a not-applicable diff |
-| 2 | Report completed and was written, but failed `--minimum` |
+| 2 | Report completed and was written, but failed the configured minimum |
 | 64 | Invalid command invocation |
 | 65 | Missing, malformed, or unreadable coverage input |
 | 66 | Git comparison failure, including missing revisions or history |
