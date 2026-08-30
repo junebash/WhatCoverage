@@ -116,6 +116,24 @@ This makes the PR requirement reviewable with the repository without duplicating
 threshold evaluation outside the functional core. Missing configuration means
 no threshold, while invalid configured values are invocation errors.
 
+### D-015: Model whole-project delta as an optional independent comparison
+
+`--input` remains the head artifact. Supplying `--base-input` reads a second
+artifact through the same normalized boundary and adds project, target, and file
+base/head counts, percentages, and percentage-point changes to both reports.
+The union of canonical files measurable in either artifact is compared; a file
+absent from one artifact has zero counts on that side. A percentage and therefore
+a change are not applicable when their denominator is zero. Delta ignores Git
+changed lines, configured path selection, and the changed-line minimum, and it
+has no policy or exit status.
+
+LLVM export and line-level Xcode archive JSON do not share a portable build-target
+identifier. Target granularity is therefore a documented source-layout grouping:
+`Sources/<name>` and `Tests/<name>` use `<name>`, other nested paths use the first
+component, and root files use `(root)`. The optional `coverageDelta` JSON member
+is an additive version-1 extension under D-011; reports without a base artifact
+remain byte-for-byte compatible.
+
 ## Pending
 
 None.

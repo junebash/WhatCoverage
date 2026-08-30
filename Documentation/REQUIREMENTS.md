@@ -55,6 +55,22 @@ design decisions.
 - **CALC-006:** A configurable minimum percentage can fail the policy without
   hiding the calculated report.
 
+## Whole-project coverage delta
+
+- **DELTA-001:** When given base and head coverage artifacts, compare their
+  normalized whole-project executable and covered line counts.
+- **DELTA-002:** Report base percentage, head percentage, and percentage-point
+  change at project, target, and file granularity independently of the Git line
+  diff, changed-file path selection, and changed-line threshold policy.
+- **DELTA-003:** Compare the union of canonical repository-relative files with
+  executable lines in either artifact. An absent file contributes zero
+  executable and covered lines on that side.
+- **DELTA-004:** Omit percentage-point change when either side has no executable
+  lines; do not substitute zero or one hundred percent.
+- **DELTA-005:** Portable target groups derive from canonical source paths:
+  `Sources/<name>` and `Tests/<name>` use `<name>`, other nested paths use their
+  first component, and root files use `(root)`.
+
 ## Output
 
 - **OUT-001:** The tool can write a human-readable Markdown report.
@@ -67,6 +83,8 @@ design decisions.
 - **OUT-005:** Ordering is deterministic.
 - **OUT-006:** Reports distinguish a valid policy failure from an operational
   failure.
+- **OUT-007:** When requested, both report formats include deterministic
+  whole-project delta and identify the base artifact and its path mapping.
 
 ## Command-line behavior
 
@@ -91,6 +109,8 @@ design decisions.
   invocation error.
 - **CLI-010:** An explicit `--minimum` overrides the configured minimum;
   `--no-config` disables both configured policy and path selection.
+- **CLI-011:** An optional base coverage input, independently inferred or
+  selected format, and captured source root enable whole-project delta.
 
 ## Quality attributes
 
@@ -107,9 +127,5 @@ design decisions.
 
 ## Deferred requirements
 
-- **DELTA-001:** Compare normalized whole-project reports from base and head
-  artifacts.
-- **DELTA-002:** Report project, target, and file coverage changes independently
-  of the Git line diff.
 - **INT-001:** Provide optional source-hosting integrations without coupling them
   to the core calculation.

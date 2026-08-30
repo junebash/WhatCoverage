@@ -3,7 +3,9 @@
 WhatCoverage answers one question for Swift changes: **are the executable lines
 changed by this work covered by tests?** It reads an existing SwiftPM LLVM JSON
 export or Xcode `.xcresult`, intersects its line coverage with a Git diff, and
-writes provider-neutral Markdown and/or versioned JSON reports.
+writes provider-neutral Markdown and/or versioned JSON reports. With a second
+base artifact, it also reports whole-project coverage change independently of
+the diff.
 
 WhatCoverage does not run tests, upload results, or contact a CI or source-hosting
 service. The build that produces the coverage artifact remains a separate step.
@@ -99,6 +101,19 @@ Then run WhatCoverage from the root of that Git repository:
   --minimum 80
 ```
 
+To add a base-versus-head whole-project comparison, preserve the coverage
+artifact produced at the base revision and pass it separately. `--input` is
+always the head artifact:
+
+```sh
+.build/release/what-coverage \
+  --input artifacts/head-coverage.json \
+  --base-input artifacts/base-coverage.json \
+  --base origin/main \
+  --markdown-output coverage.md \
+  --json-output coverage.json
+```
+
 The input and output paths may be absolute or relative to the current repository.
 Their parent directories must already exist. If coverage was captured in a
 different checkout, remap its absolute source paths with the original checkout
@@ -123,6 +138,9 @@ is:
 - `--format llvm` or `--format xcode` overrides extension inference. Without it,
   `.json` means LLVM and `.xcresult` means Xcode.
 - `--head` defaults to `HEAD`.
+- `--base-input` enables whole-project delta. Its format is inferred independently
+  or selected with `--base-format`; `--base-captured-source-root` remaps absolute
+  paths recorded in that artifact.
 - `--comparison merge-base` is the default and measures the merge base of
   `base` and `head` through `head`, equivalent to pull-request `base...head`
   semantics. `--comparison direct` measures literal `base..head` changes.
@@ -138,6 +156,18 @@ is:
 Only executable lines added or modified on the head side contribute to the
 denominator. Deleted lines, binary files, and submodules do not. Renames use the
 head-side path.
+
+Whole-project delta instead compares every normalized file with executable lines
+in the union of the base and head artifacts. It reports each side's executable
+and covered counts, coverage percentage, and the percentage-point change at
+project, target, and file granularity. A missing file has zero counts on that
+side. If either side has no executable lines, its percentage and the change are
+`N/A`. Target groups
+are portable source-layout groups because LLVM and Xcode line artifacts do not
+share build-target metadata: `Sources/<name>` and `Tests/<name>` use `<name>`,
+other nested paths use their first component, and root files use `(root)`.
+Configured path rules and `--minimum` apply only to changed-line coverage; delta
+does not affect policy or exit status.
 
 ### Coverage configuration
 
@@ -209,7 +239,7 @@ workflow; its generated `.xcresult` is intentionally not committed. See
 workflow.
 
 The package is split into focused targets under `Sources/`: `CoverageModel`,
-`CoverageReaders`, `DiffCoverage`, `GitDiff`, `ProcessSupport`,
+`CoverageReaders`, `CoverageDelta`, `DiffCoverage`, `GitDiff`, `ProcessSupport`,
 `ReportRendering`, and the `WhatCoverage` executable. Contributor guidance and
 target ownership are documented in [`AGENTS.md`](AGENTS.md).
 

@@ -166,13 +166,13 @@ in any CI provider.
 including one with paths from another checkout, write both report formats, and
 gate correctly on a threshold.
 
-## Later: Whole-project coverage delta
+## Completed: Whole-project coverage delta
 
 **Outcome:** Two normalized artifacts reveal base-versus-head changes at project,
 target, and file granularity.
 
-This begins only after the v1 report contract is stable. It will reuse artifact
-readers while keeping its comparison semantics distinct from changed-line
-coverage.
+Implemented as an optional two-artifact comparison that reuses artifact readers
+while keeping calculation, output, and policy semantics distinct from
+changed-line coverage. It adds no storage, server, or trend tracking.
 
 **Requirements:** DELTA-001–002.

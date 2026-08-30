@@ -39,6 +39,11 @@ import Testing
                 "--input", "coverage.json", "--base", "HEAD", "--captured-source-root", "relative", "--json-output", "report.json",
             ])
         }
+        #expect(throws: Error.self) {
+            _ = try WhatCoverageCommand.parseAsRoot([
+                "--input", "coverage.json", "--base", "HEAD", "--base-format", "llvm", "--json-output", "report.json",
+            ])
+        }
     }
 
     @Test func llvmWorkflowWritesBothReportsBeforeReturningThresholdFailure() throws {
@@ -105,6 +110,45 @@ import Testing
         #expect(status == .success)
         let json = try String(contentsOf: repository.appending(path: "report.json"), encoding: .utf8)
         #expect(json.contains(#""status" : "notApplicable""#))
+    }
+
+    @Test func workflowReportsTwoArtifactDeltaIndependentlyFromPathSelectionAndPolicy() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        try Data("base\n".utf8).write(to: repository.appending(path: "App.swift"))
+        try git(["add", "."], at: repository)
+        try git(["commit", "-m", "base"], at: repository)
+        let baseRevision = try git(["rev-parse", "HEAD"], at: repository)
+        try Data("head\n".utf8).write(to: repository.appending(path: "App.swift"))
+        try git(["commit", "-am", "head"], at: repository)
+
+        let baseArtifact = repository.appending(path: "base.json")
+        let headArtifact = repository.appending(path: "head.json")
+        try Data(llvmArtifact(root: "/base", count: 0).utf8).write(to: baseArtifact)
+        try Data(llvmArtifact(root: "/head", count: 1).utf8).write(to: headArtifact)
+
+        let status = try WhatCoverageWorkflow().run(
+            WhatCoverageConfiguration(
+                input: headArtifact.path,
+                format: .llvm,
+                base: baseRevision,
+                comparison: .direct,
+                capturedSourceRoot: "/head",
+                baseInput: baseArtifact.path,
+                baseFormat: .llvm,
+                baseCapturedSourceRoot: "/base",
+                jsonOutput: "report.json",
+                minimum: try Percentage(100),
+                pathSelection: try PathSelection(rules: [PathRule(pattern: "**", action: .exclude)])
+            ),
+            repository: repository
+        )
+
+        #expect(status == .success)
+        let report = try String(contentsOf: repository.appending(path: "report.json"), encoding: .utf8)
+        #expect(report.contains(#""coverageDelta""#))
+        #expect(report.contains(#""percentagePointChange" : 100"#))
+        #expect(report.contains(#""status" : "notApplicable""#))
     }
 
     @Test func orderedPathRulesUseLastMatchingRuleAndGlobComponents() throws {
@@ -204,7 +248,16 @@ import Testing
         try git(["init", "-q"], at: repository)
         try git(["config", "user.email", "tests@example.com"], at: repository)
         try git(["config", "user.name", "Tests"], at: repository)
+        try git(["config", "commit.gpgsign", "false"], at: repository)
         return repository
+    }
+
+    private func llvmArtifact(root: String, count: Int) -> String {
+        #"{"type":"llvm.coverage.json.export","version":"2.0.0","data":[{"files":[{"filename":""#
+            + root
+            + #"/App.swift","segments":[[1,1,"#
+            + String(count)
+            + #",true,true,false],[2,1,0,false,true,false]]}]}]}"#
     }
 
     @discardableResult

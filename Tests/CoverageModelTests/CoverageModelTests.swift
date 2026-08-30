@@ -23,6 +23,10 @@ import Testing
         #expect(Percentage.ratio(covered: 0, executable: 0) == nil)
         let ratio = try #require(Percentage.ratio(covered: 2, executable: 3))
         #expect(abs(ratio.value - 200.0 / 3.0) < 0.000_001)
+        #expect(try PercentagePointChange(-100).value == -100)
+        #expect(try PercentagePointChange(100).value == 100)
+        #expect(throws: CoverageModelError.self) { try PercentagePointChange(-100.1) }
+        #expect(throws: CoverageModelError.self) { try PercentagePointChange(100.1) }
     }
 
     @Test func policyOutcomeHasPassingStatusLabel() {

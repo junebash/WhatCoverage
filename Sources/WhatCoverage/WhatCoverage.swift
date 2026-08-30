@@ -1,4 +1,5 @@
 import ArgumentParser
+import CoverageDelta
 import CoverageModel
 import CoverageReaders
 import DiffCoverage
@@ -40,6 +41,9 @@ public struct WhatCoverageConfiguration: Sendable {
     public let head: String
     public let comparison: ComparisonOption
     public let capturedSourceRoot: String?
+    public let baseInput: String?
+    public let baseFormat: CoverageFormat?
+    public let baseCapturedSourceRoot: String?
     public let markdownOutput: String?
     public let jsonOutput: String?
     public let minimum: Percentage?
@@ -52,6 +56,9 @@ public struct WhatCoverageConfiguration: Sendable {
         head: String = "HEAD",
         comparison: ComparisonOption = .mergeBase,
         capturedSourceRoot: String? = nil,
+        baseInput: String? = nil,
+        baseFormat: CoverageFormat? = nil,
+        baseCapturedSourceRoot: String? = nil,
         markdownOutput: String? = nil,
         jsonOutput: String? = nil,
         minimum: Percentage? = nil,
@@ -63,6 +70,9 @@ public struct WhatCoverageConfiguration: Sendable {
         self.head = head
         self.comparison = comparison
         self.capturedSourceRoot = capturedSourceRoot
+        self.baseInput = baseInput
+        self.baseFormat = baseFormat
+        self.baseCapturedSourceRoot = baseCapturedSourceRoot
         self.markdownOutput = markdownOutput
         self.jsonOutput = jsonOutput
         self.minimum = minimum
@@ -99,6 +109,13 @@ public struct WhatCoverageWorkflow: Sendable {
     public init() {}
 
     public func run(_ configuration: WhatCoverageConfiguration, repository: URL) throws -> WhatCoverageExitStatus {
+        guard (configuration.baseInput == nil) == (configuration.baseFormat == nil),
+              configuration.baseInput != nil || configuration.baseCapturedSourceRoot == nil
+        else {
+            throw WhatCoverageError.invocation(
+                "A base coverage input and format must be provided together; base path mapping requires both."
+            )
+        }
         let root = repository.standardizedFileURL
         let mapper: SourcePathMapper
         do {
@@ -107,22 +124,43 @@ public struct WhatCoverageWorkflow: Sendable {
             throw WhatCoverageError.invocation(String(describing: error))
         }
 
-        let inputURL = resolvedURL(configuration.input, repository: root)
-        guard FileManager.default.fileExists(atPath: inputURL.path) else {
-            throw WhatCoverageError.coverageInput(
-                "No coverage artifact exists at \(inputURL.path). Check --input and its permissions."
-            )
-        }
-        let coverage: NormalizedCoverage
-        do {
-            switch configuration.format {
-            case .llvm:
-                coverage = try LLVMCoverageReader().read(data: Data(contentsOf: inputURL), pathMapper: mapper)
-            case .xcode:
-                coverage = try XcodeCoverageReader().read(resultBundle: inputURL, pathMapper: mapper)
+        let coverage = try readCoverage(
+            input: configuration.input,
+            format: configuration.format,
+            mapper: mapper,
+            repository: root
+        )
+
+        let coverageDelta: CoverageDeltaDocument?
+        if let baseInput = configuration.baseInput, let baseFormat = configuration.baseFormat {
+            let baseMapper: SourcePathMapper
+            do {
+                baseMapper = try SourcePathMapper(
+                    repositoryRoot: root.path,
+                    capturedSourceRoot: configuration.baseCapturedSourceRoot
+                )
+            } catch {
+                throw WhatCoverageError.invocation(String(describing: error))
             }
-        } catch {
-            throw WhatCoverageError.coverageInput(String(describing: error))
+            let baseCoverage = try readCoverage(
+                input: baseInput,
+                format: baseFormat,
+                mapper: baseMapper,
+                repository: root
+            )
+            coverageDelta = CoverageDeltaDocument(
+                baseInput: CoverageInputMetadata(
+                    kind: baseFormat == .llvm ? .llvm : .xcode,
+                    source: baseInput
+                ),
+                basePathMapping: PathMappingMetadata(
+                    repositoryRoot: root.path,
+                    capturedSourceRoot: configuration.baseCapturedSourceRoot
+                ),
+                result: CoverageDeltaCalculator.calculate(base: baseCoverage, head: coverage)
+            )
+        } else {
+            coverageDelta = nil
         }
 
         let diff: GitDiffResult
@@ -154,7 +192,8 @@ public struct WhatCoverageWorkflow: Sendable {
                 coverageInput: CoverageInputMetadata(kind: configuration.format == .llvm ? .llvm : .xcode, source: configuration.input),
                 pathMapping: PathMappingMetadata(repositoryRoot: root.path, capturedSourceRoot: configuration.capturedSourceRoot)
             ),
-            result: result
+            result: result,
+            coverageDelta: coverageDelta
         )
         do {
             if let markdownOutput = configuration.markdownOutput {
@@ -173,6 +212,30 @@ public struct WhatCoverageWorkflow: Sendable {
 
     private func outputURL(_ path: String, repository: URL) -> URL {
         resolvedURL(path, repository: repository)
+    }
+
+    private func readCoverage(
+        input: String,
+        format: CoverageFormat,
+        mapper: SourcePathMapper,
+        repository: URL
+    ) throws -> NormalizedCoverage {
+        let inputURL = resolvedURL(input, repository: repository)
+        guard FileManager.default.fileExists(atPath: inputURL.path) else {
+            throw WhatCoverageError.coverageInput(
+                "No coverage artifact exists at \(inputURL.path). Check the input path and its permissions."
+            )
+        }
+        do {
+            switch format {
+            case .llvm:
+                return try LLVMCoverageReader().read(data: Data(contentsOf: inputURL), pathMapper: mapper)
+            case .xcode:
+                return try XcodeCoverageReader().read(resultBundle: inputURL, pathMapper: mapper)
+            }
+        } catch {
+            throw WhatCoverageError.coverageInput(String(describing: error))
+        }
     }
 
     private func resolvedURL(_ path: String, repository: URL) -> URL {
@@ -196,6 +259,9 @@ public struct WhatCoverageCommand: ParsableCommand {
     @Option(help: "Git head revision.") var head = "HEAD"
     @Option(help: "Comparison mode: merge-base (base...head) or direct (base..head).") var comparison: ComparisonOption = .mergeBase
     @Option(help: "Original absolute source root recorded in the coverage artifact.") var capturedSourceRoot: String?
+    @Option(help: "Base-revision artifact used for whole-project coverage delta.") var baseInput: String?
+    @Option(help: "Explicit base artifact format; inferred from --base-input when omitted.") var baseFormat: CoverageFormat?
+    @Option(help: "Original absolute source root recorded in the base coverage artifact.") var baseCapturedSourceRoot: String?
     @Option(help: "Write a Markdown report to this path.") var markdownOutput: String?
     @Option(help: "Write a JSON report to this path.") var jsonOutput: String?
     @Option(help: "Minimum changed-line coverage percentage (0 through 100).") var minimum: Double?
@@ -226,11 +292,18 @@ public struct WhatCoverageCommand: ParsableCommand {
         if let capturedSourceRoot, !capturedSourceRoot.hasPrefix("/") {
             throw ValidationError("--captured-source-root must be an absolute path.")
         }
+        if let baseCapturedSourceRoot, !baseCapturedSourceRoot.hasPrefix("/") {
+            throw ValidationError("--base-captured-source-root must be an absolute path.")
+        }
+        if baseInput == nil, baseFormat != nil || baseCapturedSourceRoot != nil {
+            throw ValidationError("--base-format and --base-captured-source-root require --base-input.")
+        }
         if let minimum, (!(0...100).contains(minimum) || !minimum.isFinite) {
             throw ValidationError("--minimum must be a finite percentage from 0 through 100.")
         }
         if config != nil && noConfig { throw ValidationError("--config and --no-config cannot be used together.") }
         if format == nil { format = try Self.inferFormat(for: input) }
+        if let baseInput, baseFormat == nil { baseFormat = try Self.inferFormat(for: baseInput) }
     }
 
     public mutating func run() throws {
@@ -244,6 +317,9 @@ public struct WhatCoverageCommand: ParsableCommand {
             head: head,
             comparison: comparison,
             capturedSourceRoot: capturedSourceRoot,
+            baseInput: baseInput,
+            baseFormat: baseFormat,
+            baseCapturedSourceRoot: baseCapturedSourceRoot,
             markdownOutput: markdownOutput,
             jsonOutput: jsonOutput,
             minimum: minimum,

@@ -31,6 +31,7 @@ private struct JSONReport: Encodable {
     let totals: Counts
     let files: [FileResult]
     let policy: Policy
+    let coverageDelta: CoverageDelta?
 
     init(_ document: CoverageReportDocument) {
         schemaVersion = JSONReportRenderer.schemaVersion
@@ -40,6 +41,50 @@ private struct JSONReport: Encodable {
         totals = Counts(document.result.totals)
         files = document.result.files.sorted { $0.path < $1.path }.map(FileResult.init)
         policy = Policy(document.result.policy)
+        coverageDelta = document.coverageDelta.map(CoverageDelta.init)
+    }
+}
+
+private struct CoverageDelta: Encodable {
+    struct Target: Encodable {
+        let name: String
+        let coverage: DeltaCounts
+    }
+
+    struct File: Encodable {
+        let path: RepositoryPath
+        let target: String
+        let coverage: DeltaCounts
+    }
+
+    let baseInput: CoverageInput
+    let basePathMapping: PathMapping
+    let project: DeltaCounts
+    let targets: [Target]
+    let files: [File]
+
+    init(_ document: CoverageDeltaDocument) {
+        baseInput = CoverageInput(document.baseInput)
+        basePathMapping = PathMapping(document.basePathMapping)
+        project = DeltaCounts(document.result.project)
+        targets = document.result.targets.sorted { $0.name < $1.name }.map {
+            Target(name: $0.name, coverage: DeltaCounts($0.coverage))
+        }
+        files = document.result.files.sorted { $0.path < $1.path }.map {
+            File(path: $0.path, target: $0.target, coverage: DeltaCounts($0.coverage))
+        }
+    }
+}
+
+private struct DeltaCounts: Encodable {
+    let base: Counts
+    let head: Counts
+    let percentagePointChange: PercentagePointChange?
+
+    init(_ delta: CoverageDeltaCounts) {
+        base = Counts(delta.base)
+        head = Counts(delta.head)
+        percentagePointChange = delta.percentagePointChange
     }
 }
 

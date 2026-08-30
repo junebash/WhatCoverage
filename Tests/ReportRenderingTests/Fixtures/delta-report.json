@@ -1,0 +1,128 @@
+{
+  "comparison" : {
+    "mode" : "mergeBase",
+    "requestedBase" : "origin/main",
+    "requestedHead" : "HEAD",
+    "resolvedBase" : "aaaaaaa",
+    "resolvedHead" : "bbbbbbb"
+  },
+  "coverageDelta" : {
+    "baseInput" : {
+      "kind" : "llvm",
+      "source" : "Artifacts/base.json"
+    },
+    "basePathMapping" : {
+      "capturedSourceRoot" : "/build/base",
+      "repositoryRoot" : "/workspace/repo"
+    },
+    "files" : [
+      {
+        "coverage" : {
+          "base" : {
+            "covered" : 1,
+            "executable" : 2,
+            "percentage" : 50,
+            "uncovered" : 1
+          },
+          "head" : {
+            "covered" : 2,
+            "executable" : 2,
+            "percentage" : 100,
+            "uncovered" : 0
+          },
+          "percentagePointChange" : 50
+        },
+        "path" : "Sources/App/A.swift",
+        "target" : "App"
+      },
+      {
+        "coverage" : {
+          "base" : {
+            "covered" : 0,
+            "executable" : 0,
+            "uncovered" : 0
+          },
+          "head" : {
+            "covered" : 0,
+            "executable" : 1,
+            "percentage" : 0,
+            "uncovered" : 1
+          }
+        },
+        "path" : "Tests/AppTests/A.swift",
+        "target" : "AppTests"
+      }
+    ],
+    "project" : {
+      "base" : {
+        "covered" : 1,
+        "executable" : 2,
+        "percentage" : 50,
+        "uncovered" : 1
+      },
+      "head" : {
+        "covered" : 2,
+        "executable" : 3,
+        "percentage" : 66.66666666666667,
+        "uncovered" : 1
+      },
+      "percentagePointChange" : 16.66666666666667
+    },
+    "targets" : [
+      {
+        "coverage" : {
+          "base" : {
+            "covered" : 1,
+            "executable" : 2,
+            "percentage" : 50,
+            "uncovered" : 1
+          },
+          "head" : {
+            "covered" : 2,
+            "executable" : 2,
+            "percentage" : 100,
+            "uncovered" : 0
+          },
+          "percentagePointChange" : 50
+        },
+        "name" : "App"
+      },
+      {
+        "coverage" : {
+          "base" : {
+            "covered" : 0,
+            "executable" : 0,
+            "uncovered" : 0
+          },
+          "head" : {
+            "covered" : 0,
+            "executable" : 1,
+            "percentage" : 0,
+            "uncovered" : 1
+          }
+        },
+        "name" : "AppTests"
+      }
+    ]
+  },
+  "coverageInput" : {
+    "kind" : "xcode",
+    "source" : "Artifacts/Tests.xcresult"
+  },
+  "files" : [
+
+  ],
+  "pathMapping" : {
+    "capturedSourceRoot" : "/build/repo",
+    "repositoryRoot" : "/workspace/repo"
+  },
+  "policy" : {
+    "status" : "notApplicable"
+  },
+  "schemaVersion" : 1,
+  "totals" : {
+    "covered" : 0,
+    "executable" : 0,
+    "uncovered" : 0
+  }
+}

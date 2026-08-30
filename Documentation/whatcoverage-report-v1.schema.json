@@ -33,6 +33,38 @@
         "capturedSourceRoot": {"type": "string"}
       }
     },
+    "coverageDelta": {
+      "type": "object",
+      "required": ["baseInput", "basePathMapping", "project", "targets", "files"],
+      "properties": {
+        "baseInput": {"$ref": "#/$defs/coverageInput"},
+        "basePathMapping": {"$ref": "#/$defs/pathMapping"},
+        "project": {"$ref": "#/$defs/deltaCounts"},
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "coverage"],
+            "properties": {
+              "name": {"type": "string"},
+              "coverage": {"$ref": "#/$defs/deltaCounts"}
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "target", "coverage"],
+            "properties": {
+              "path": {"type": "string"},
+              "target": {"type": "string"},
+              "coverage": {"$ref": "#/$defs/deltaCounts"}
+            }
+          }
+        }
+      }
+    },
     "totals": {"$ref": "#/$defs/counts"},
     "files": {
       "type": "array",
@@ -73,6 +105,23 @@
   },
   "$defs": {
     "percentage": {"type": "number", "minimum": 0, "maximum": 100},
+    "percentagePointChange": {"type": "number", "minimum": -100, "maximum": 100},
+    "coverageInput": {
+      "type": "object",
+      "required": ["kind", "source"],
+      "properties": {
+        "kind": {"enum": ["xcode", "llvm"]},
+        "source": {"type": "string"}
+      }
+    },
+    "pathMapping": {
+      "type": "object",
+      "required": ["repositoryRoot"],
+      "properties": {
+        "repositoryRoot": {"type": "string"},
+        "capturedSourceRoot": {"type": "string"}
+      }
+    },
     "counts": {
       "type": "object",
       "required": ["executable", "covered", "uncovered"],
@@ -81,6 +130,15 @@
         "covered": {"type": "integer", "minimum": 0},
         "uncovered": {"type": "integer", "minimum": 0},
         "percentage": {"$ref": "#/$defs/percentage"}
+      }
+    },
+    "deltaCounts": {
+      "type": "object",
+      "required": ["base", "head"],
+      "properties": {
+        "base": {"$ref": "#/$defs/counts"},
+        "head": {"$ref": "#/$defs/counts"},
+        "percentagePointChange": {"$ref": "#/$defs/percentagePointChange"}
       }
     },
     "lines": {

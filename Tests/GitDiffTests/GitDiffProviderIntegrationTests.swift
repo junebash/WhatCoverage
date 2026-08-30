@@ -97,6 +97,7 @@ import Testing
         try git(["init", "-q"], at: url)
         try git(["config", "user.email", "tests@example.com"], at: url)
         try git(["config", "user.name", "Tests"], at: url)
+        try git(["config", "commit.gpgsign", "false"], at: url)
         return url
     }
 

@@ -6,17 +6,12 @@ WhatCoverage is a command-line executable over a small set of focused internal
 modules. The CLI coordinates dependencies; it does not contain coverage logic.
 
 ```text
-Xcode result bundle ─┐
-                     ├─> Coverage parser ─> normalized coverage ─┐
-LLVM coverage JSON ──┘                                           │
-                                                                 ├─> calculator
-Git revisions ─────────> Git diff provider ─> changed lines ─────┘       │
-                                                                          v
-                                                              report + policy
-                                                                          │
-                                                               ┌──────────┴───────┐
-                                                               v                  v
-                                                           Markdown              JSON
+head artifact ──> Coverage reader ──> normalized head ──┬─> DiffCoverage ─┐
+                                                       │                 │
+Git revisions ──> Git diff provider ──> changed lines ─┘                 ├─> report ─┬─> Markdown
+                                                                         │           └─> JSON
+base artifact ──> Coverage reader ──> normalized base ─┬─> CoverageDelta ─┘
+normalized head ───────────────────────────────────────┘
 ```
 
 ## Module boundaries
@@ -93,6 +88,17 @@ Intersects changed lines with executable coverage lines, aggregates file and
 total results, and evaluates an optional threshold. This is the functional core:
 its inputs and outputs are values and its tests require no processes or files.
 
+### CoverageDelta
+
+Compares two `NormalizedCoverage` values without Git input. It independently
+aggregates executable and covered lines from each artifact over the union of
+files, then reports base, head, and percentage-point change at project, target,
+and file levels. Portable target groups derive from canonical source paths
+because the supported LLVM and line-level Xcode artifacts do not expose one
+common build-target identity: `Sources/<name>` and `Tests/<name>` use `<name>`,
+other nested files use their first component, and repository-root files use
+`(root)`.
+
 ### ReportRendering
 
 Transforms one report model into versioned JSON or Markdown. Renderers do not
@@ -143,6 +149,9 @@ future integrations:
 - deterministic per-file results
 - optional threshold
 - policy outcome: passed, failed, or not applicable
+- optional base coverage input and path mapping
+- optional project, target, and file base/head whole-project counts,
+  percentages, and percentage-point changes
 
 JSON consumers must ignore unknown object members. Additive optional members may
 preserve a version; changed meaning, removed or newly required members, changed
@@ -163,7 +172,10 @@ written before the process returns its threshold-failure status.
 
 ## Extension: base-versus-head delta
 
-Future coverage delta consumes two values from the existing normalized coverage
-boundary and produces a separate comparison result. It must not be inferred from
-diff coverage. Keeping artifact readers independent from the calculator lets
-this feature reuse both readers without changing the CLI's initial core.
+Coverage delta consumes two values from the existing normalized coverage
+boundary and produces a separate comparison result. It is never inferred from
+diff coverage. `--input` remains the head artifact; optional `--base-input` and
+its independent format and captured-root options enable delta. The delta uses
+all normalized files, ignores changed-file selection and threshold policy, and
+cannot change the process exit status. Version 1 JSON includes it as the
+optional additive `coverageDelta` member.

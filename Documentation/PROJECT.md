@@ -17,21 +17,22 @@ tools in Swift repositories.
 - Produce Markdown suitable for a build summary or pull-request comment.
 - Produce stable JSON for automation and future integrations.
 - Fail predictably when coverage falls below a configured threshold.
+- Optionally compare whole-project coverage from base and head artifacts.
 - Explain input, Git, and threshold failures distinctly.
 - Remain independent of CI and source-hosting providers.
 
-## Non-goals for the first release
+## Non-goals
 
 - Running builds or tests.
 - Uploading reports or calling GitHub, GitLab, or CI-provider APIs.
 - Replacing static analysis, quality gates, or other non-coverage SonarCloud
   features.
-- Comparing whole-project coverage between reports from two commits.
+- Persisting coverage history or tracking trends across more than two artifacts.
 - Rendering a hosted web dashboard.
 
-Whole-project base-versus-head coverage delta is a planned extension. It
-requires two coverage artifacts and is deliberately separate from changed-line
-coverage, which requires only the head artifact and a Git diff.
+Whole-project base-versus-head coverage delta requires two coverage artifacts
+and remains deliberately separate from changed-line coverage, which requires
+only the head artifact and a Git diff.
 
 ## Intended workflow
 
@@ -40,6 +41,10 @@ coverage, which requires only the head artifact and a Git diff.
 3. WhatCoverage resolves the changed lines from Git.
 4. WhatCoverage correlates those lines with executable regions in the artifact.
 5. It writes Markdown and/or JSON and exits according to the configured policy.
+
+When a base artifact is supplied, WhatCoverage also normalizes it and compares
+whole-project coverage with the head artifact. This comparison does not use the
+Git line diff and does not affect changed-line policy or exit status.
 
 WhatCoverage must also work locally when given the same inputs.
 

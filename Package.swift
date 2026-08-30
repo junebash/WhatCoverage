@@ -18,6 +18,7 @@ let package = Package(
     targets: [
         .target(name: "CoverageModel"),
         .target(name: "CoverageReaders", dependencies: ["CoverageModel", "ProcessSupport"]),
+        .target(name: "CoverageDelta", dependencies: ["CoverageModel"]),
         .target(name: "DiffCoverage", dependencies: ["CoverageModel"]),
         .target(name: "GitDiff", dependencies: ["CoverageModel", "ProcessSupport"]),
         .target(name: "ProcessSupport"),
@@ -26,6 +27,7 @@ let package = Package(
             name: "WhatCoverage",
             dependencies: [
                 "CoverageReaders",
+                "CoverageDelta",
                 "DiffCoverage",
                 "GitDiff",
                 "ReportRendering",
@@ -37,16 +39,17 @@ let package = Package(
             dependencies: ["ReportRendering"]
         ),
         .testTarget(name: "CoverageModelTests", dependencies: ["CoverageModel"]),
+        .testTarget(name: "CoverageDeltaTests", dependencies: ["CoverageDelta"]),
         .testTarget(
             name: "CoverageReadersTests",
-            dependencies: ["CoverageReaders", "DiffCoverage", "GitDiff", "ProcessSupport"],
+            dependencies: ["CoverageReaders", "CoverageDelta", "DiffCoverage", "GitDiff", "ProcessSupport"],
             resources: [.copy("Fixtures")]
         ),
         .testTarget(name: "DiffCoverageTests", dependencies: ["DiffCoverage"]),
         .testTarget(name: "GitDiffTests", dependencies: ["CoverageModel", "GitDiff", "ProcessSupport"]),
         .testTarget(
             name: "ReportRenderingTests",
-            dependencies: ["CoverageModel", "DiffCoverage", "ReportRendering"],
+            dependencies: ["CoverageModel", "CoverageDelta", "DiffCoverage", "ReportRendering"],
             resources: [.copy("Fixtures")]
         ),
         .testTarget(
