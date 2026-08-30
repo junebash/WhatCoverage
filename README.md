@@ -128,12 +128,55 @@ is:
   semantics. `--comparison direct` measures literal `base..head` changes.
 - `--minimum` accepts a percentage from 0 through 100. Policy evaluation uses
   the unrounded value.
+- The command discovers `.whatcoverage.toml` only at the resolved Git repository
+  root (including when invoked from a subdirectory). `--config PATH` replaces
+  that discovery; `--no-config` disables it. A missing discovered file preserves
+  the pre-configuration behavior, while an explicitly requested file must exist.
 - A diff with no changed executable lines is reported as not applicable and
   succeeds rather than being treated as either 0% or 100%.
 
 Only executable lines added or modified on the head side contribute to the
 denominator. Deleted lines, binary files, and submodules do not. Renames use the
 head-side path.
+
+### Path selection configuration
+
+Path rules select changed files before coverage is calculated, so they affect
+file rows, totals, JSON, policy, exit status, and PR-comment artifacts equally.
+The first schema is deliberately limited to path selection:
+
+```toml
+schema_version = 1
+
+[[paths]]
+pattern = "Sources/**/*.swift"
+action = "include"
+
+[[paths]]
+pattern = "**/Generated/**"
+action = "exclude"
+
+[[paths]]
+pattern = "Sources/Generated/Important.swift"
+action = "include"
+```
+
+Paths are normalized repository-relative `/` paths. Rules are evaluated in file
+order and the last matching rule wins. Unmatched files are included, so an
+allowlist starts with `pattern = "**"` and `action = "exclude"`. `*` matches
+zero or more non-`/` characters in one component, `?` matches one non-`/`
+character, and a `**` component matches zero or more components. Matching is
+case-sensitive; dotfiles and Unicode have no special treatment. Bracket classes,
+brace expansion, negation, and escapes are not glob features.
+
+Patterns must be nonempty, relative, slash-separated, and canonical. Absolute,
+drive-rooted, backslash, empty-component, `.`, `..`, and embedded-`**` patterns
+are rejected. The parser strictly requires `schema_version = 1`, `[[paths]]`,
+and quoted `pattern`/`action` strings; unknown or duplicate keys, malformed
+values, and actions other than `include` or `exclude` are invocation errors.
+No TOML dependency is used: the implementation intentionally accepts only this
+small, validated TOML subset rather than introducing a supply-chain dependency
+for two string fields.
 
 ### Exit statuses
 

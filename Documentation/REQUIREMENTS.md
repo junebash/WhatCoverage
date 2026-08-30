@@ -82,6 +82,12 @@ design decisions.
   unambiguous; an explicit format overrides inference.
 - **CLI-007:** Unknown or ambiguous input types require an explicit format and
   produce an invocation diagnostic otherwise.
+- **CLI-008:** The command discovers an optional `.whatcoverage.toml` only at the
+  resolved compared repository root. `--config` selects one explicit file and
+  `--no-config` disables automatic configuration loading.
+- **CLI-009:** Version 1 configuration path rules use deterministic, ordered
+  last-match-wins include/exclude selection over canonical repository-relative
+  paths. Invalid or unsafe configuration is an invocation error.
 
 ## Quality attributes
 

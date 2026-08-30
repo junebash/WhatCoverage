@@ -43,6 +43,7 @@ public struct WhatCoverageConfiguration: Sendable {
     public let markdownOutput: String?
     public let jsonOutput: String?
     public let minimum: Percentage?
+    public let pathSelection: PathSelection
 
     public init(
         input: String,
@@ -53,7 +54,8 @@ public struct WhatCoverageConfiguration: Sendable {
         capturedSourceRoot: String? = nil,
         markdownOutput: String? = nil,
         jsonOutput: String? = nil,
-        minimum: Percentage? = nil
+        minimum: Percentage? = nil,
+        pathSelection: PathSelection = PathSelection()
     ) {
         self.input = input
         self.format = format
@@ -64,6 +66,7 @@ public struct WhatCoverageConfiguration: Sendable {
         self.markdownOutput = markdownOutput
         self.jsonOutput = jsonOutput
         self.minimum = minimum
+        self.pathSelection = pathSelection
     }
 }
 
@@ -136,7 +139,7 @@ public struct WhatCoverageWorkflow: Sendable {
 
         let result = DiffCoverageCalculator.calculate(
             coverage: coverage,
-            changes: diff.changes,
+            changes: try configuration.pathSelection.filter(diff.changes),
             minimum: configuration.minimum
         )
         let document = CoverageReportDocument(
@@ -196,6 +199,8 @@ public struct WhatCoverageCommand: ParsableCommand {
     @Option(help: "Write a Markdown report to this path.") var markdownOutput: String?
     @Option(help: "Write a JSON report to this path.") var jsonOutput: String?
     @Option(help: "Minimum changed-line coverage percentage (0 through 100).") var minimum: Double?
+    @Option(help: "Read path selection rules from this TOML file (relative paths are rooted at the compared repository).") var config: String?
+    @Flag(name: .long, help: "Do not load the repository's .whatcoverage.toml file.") var noConfig = false
 
     public init() {}
 
@@ -224,11 +229,14 @@ public struct WhatCoverageCommand: ParsableCommand {
         if let minimum, (!(0...100).contains(minimum) || !minimum.isFinite) {
             throw ValidationError("--minimum must be a finite percentage from 0 through 100.")
         }
+        if config != nil && noConfig { throw ValidationError("--config and --no-config cannot be used together.") }
         if format == nil { format = try Self.inferFormat(for: input) }
     }
 
     public mutating func run() throws {
         let minimum = try minimum.map(Percentage.init)
+        let repository = try Self.repositoryRoot(from: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
+        let pathSelection = try Self.pathSelection(config: config, noConfig: noConfig, repository: repository)
         let configuration = WhatCoverageConfiguration(
             input: input,
             format: format!,
@@ -238,9 +246,10 @@ public struct WhatCoverageCommand: ParsableCommand {
             capturedSourceRoot: capturedSourceRoot,
             markdownOutput: markdownOutput,
             jsonOutput: jsonOutput,
-            minimum: minimum
+            minimum: minimum,
+            pathSelection: pathSelection
         )
-        let status = try WhatCoverageWorkflow().run(configuration, repository: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
+        let status = try WhatCoverageWorkflow().run(configuration, repository: repository)
         if status != .success { throw ExitCode(rawValue: status.rawValue) }
     }
 
@@ -248,6 +257,37 @@ public struct WhatCoverageCommand: ParsableCommand {
         if input.lowercased().hasSuffix(".xcresult") { return .xcode }
         if input.lowercased().hasSuffix(".json") { return .llvm }
         throw ValidationError("Cannot infer the coverage format from \(input). Specify --format llvm or --format xcode.")
+    }
+
+    static func pathSelection(config: String?, noConfig: Bool, repository: URL) throws -> PathSelection {
+        if noConfig { return PathSelection() }
+        let url: URL
+        if let config {
+            url = config.hasPrefix("/") ? URL(fileURLWithPath: config) : repository.appending(path: config)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                throw WhatCoverageError.invocation("Configuration file \(url.path) requested by --config does not exist.")
+            }
+        } else {
+            url = repository.appending(path: ".whatcoverage.toml")
+            guard FileManager.default.fileExists(atPath: url.path) else { return PathSelection() }
+        }
+        return try PathConfigurationLoader.load(from: url)
+    }
+
+    static func repositoryRoot(from directory: URL) throws -> URL {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["rev-parse", "--show-toplevel"]
+        process.currentDirectoryURL = directory
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+        do { try process.run() } catch { throw WhatCoverageError.git("Could not start Git while locating the repository root: \(error.localizedDescription)") }
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { throw WhatCoverageError.git("Could not locate a Git repository from \(directory.path).") }
+        let path = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { throw WhatCoverageError.git("Git did not return a repository root.") }
+        return URL(fileURLWithPath: path).standardizedFileURL
     }
 
     private static func terminate(with status: Int32) -> Never {
