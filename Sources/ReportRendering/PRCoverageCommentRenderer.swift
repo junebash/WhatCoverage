@@ -1,4 +1,5 @@
 import CoreFoundation
+import CoverageModel
 import Foundation
 
 public enum PRCoverageCommentError: Error, Equatable, Sendable {
@@ -70,12 +71,49 @@ public struct ValidatedPRCoverageReport: Equatable, Sendable {
     }
 }
 
+public struct LocalPRCoverageSourceLoader: Sendable {
+    private let limits = PRCoverageCommentLimits.standard
+
+    public init() {}
+
+    public func load(for report: ValidatedPRCoverageReport, repositoryRoot: URL) -> [String: String] {
+        let root = repositoryRoot.standardizedFileURL.resolvingSymlinksInPath()
+        var sources: [String: String] = [:]
+        var totalBytes = 0
+        for path in report.sourceRequestPaths.prefix(limits.sourceAttempts) {
+            guard sources.count < limits.sourceFiles else { break }
+            let file = root.appending(path: path).standardizedFileURL.resolvingSymlinksInPath()
+            let rootPrefix = root.path == "/" ? "/" : root.path + "/"
+            guard file.path.hasPrefix(rootPrefix),
+                  let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+                  (attributes[.type] as? FileAttributeType) == .typeRegular,
+                  let size = (attributes[.size] as? NSNumber)?.intValue,
+                  size <= limits.sourceBytesPerFile,
+                  totalBytes + size <= limits.sourceBytesTotal,
+                  let data = try? Data(contentsOf: file),
+                  data.count == size,
+                  !data.contains(0),
+                  let text = String(data: data, encoding: .utf8)
+            else {
+                continue
+            }
+            sources[path] = text
+            totalBytes += size
+        }
+        return sources
+    }
+}
+
 public struct PRCoverageReportValidator: Sendable {
     private let limits = PRCoverageCommentLimits.standard
 
     public init() {}
 
-    public func validate(_ data: Data, expectedHead: String) throws -> ValidatedPRCoverageReport {
+    public func validate(
+        _ data: Data,
+        expectedHead: String,
+        requiredInputKind: CoverageInputKind? = .llvm
+    ) throws -> ValidatedPRCoverageReport {
         let root: [String: Any]
         do {
             guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -88,8 +126,10 @@ public struct PRCoverageReportValidator: Sendable {
             throw invalid("contract")
         }
 
+        let inputKind = dictionary(root["coverageInput"])?["kind"] as? String
         guard integer(root["schemaVersion"]) == 1,
-              dictionary(root["coverageInput"])?["kind"] as? String == "llvm",
+              inputKind == CoverageInputKind.llvm.rawValue || inputKind == CoverageInputKind.xcode.rawValue,
+              requiredInputKind == nil || inputKind == requiredInputKind?.rawValue,
               dictionary(root["comparison"])?["resolvedHead"] as? String == expectedHead,
               let rawFiles = root["files"] as? [Any],
               rawFiles.count <= limits.files,

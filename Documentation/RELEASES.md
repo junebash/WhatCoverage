@@ -1,5 +1,17 @@
 # Releases
 
+## Next minor release
+
+The v0.9.0 archives add `what-coverage-pr-comment` beside `what-coverage` on all
+three platforms. The installer installs both, and package smoke tests validate
+both help entry points plus a local rich-comment render. This is additive; flat
+Markdown and the existing trusted Actions rendering protocol remain unchanged.
+
+Configuration schema version 2 is also additive. Existing schema version 1
+repositories keep unfiltered whole-project and delta values. Version 2 users who
+set `path_scope.whole_project` or `path_scope.coverage_delta` to `true` will see
+those numbers change because excluded files are intentionally omitted.
+
 WhatCoverage uses [Semantic Versioning](https://semver.org/) and releases from
 the `main` branch through the [Release workflow](../.github/workflows/release.yml).
 The repository has no version source file: Git tags and GitHub Releases are the

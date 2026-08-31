@@ -147,6 +147,29 @@ accept older reports. Its name and PR-comment presentation describe only the
 current head total; percentage-point change remains exclusive to
 `coverageDelta` when a base artifact is explicitly supplied.
 
+### D-017: Add opt-in path scope and Sonar import in configuration version 2
+
+Version 1 configuration and its exact bare-pattern semantics remain unchanged.
+Version 2 can apply one ordered selection independently to changed lines,
+current whole-project totals, and both delta artifacts; whole-project and delta
+default to unfiltered. A zero-file selection retains the existing not-applicable
+model.
+
+Version 2 may import `sonar.sources`, `sonar.exclusions`,
+`sonar.coverage.exclusions`, and `sonar.tests` from a relative Java properties
+file. Imported rules precede explicit `[[paths]]` overrides. Bare non-glob paths
+mean directory trees in version 2 and imports. Unsupported Sonar glob features
+fail explicitly rather than receiving approximate semantics.
+
+### D-018: Ship one rich-comment executable with strict and trusted-local modes
+
+Release archives contain both executables. The existing Actions mode preserves
+its single-file artifact constraint, bounded pre-fetched source JSON, and base64
+stdout contract. Trusted local CI can instead validate a normally named report,
+load bounded UTF-8 source beneath a checkout root, and write Markdown directly.
+This shares the validator, renderer, and limits without granting untrusted pull
+request code a write token or changing flat report output.
+
 ## Pending
 
 None.

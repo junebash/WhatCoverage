@@ -84,12 +84,70 @@ import Testing
         #expect(!((try render(oldReport)).contains("Whole-project coverage")))
     }
 
+    @Test func trustedValidationAcceptsXcodeWhileStrictValidationRemainsLLVMOnly() throws {
+        var value = report()
+        value["coverageInput"] = ["kind": "xcode"]
+        let data = try JSONSerialization.data(withJSONObject: value)
+
+        #expect(throws: PRCoverageCommentError.self) {
+            try PRCoverageReportValidator().validate(data, expectedHead: head)
+        }
+        #expect(try PRCoverageReportValidator().validate(
+            data,
+            expectedHead: head,
+            requiredInputKind: nil
+        ).totals.executable == 3)
+    }
+
     @Test func truncatesSourceAndOmitsUnavailableExcerpts() throws {
         let longSource = Array(repeating: String(repeating: "x", count: 500), count: 8).joined(separator: "\n") + "\n"
         #expect(try render(report(), sources: ["Sources/A.swift": longSource]).contains("…"))
 
         let unavailable = try render(report(), sources: ["Sources/A.swift": "\0binary"])
         #expect(!unavailable.contains("Uncovered source"))
+    }
+
+    @Test func loadsBoundedUTF8SourcesFromARepositoryWithoutFollowingEscapingSymlinks() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let outside = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outside)
+        }
+        try FileManager.default.createDirectory(at: root.appending(path: "Sources"), withIntermediateDirectories: true)
+        try Data("one\ntwo\nthree\n".utf8).write(to: root.appending(path: "Sources/A.swift"))
+        try Data("outside".utf8).write(to: outside)
+        try FileManager.default.createSymbolicLink(
+            at: root.appending(path: "Sources/Escape.swift"),
+            withDestinationURL: outside
+        )
+        var value = report()
+        value["files"] = [
+            [
+                "path": "Sources/A.swift",
+                "counts": counts(covered: 1, uncovered: 1, executable: 2),
+                "coveredLines": [1],
+                "uncoveredLines": [2],
+            ],
+            [
+                "path": "Sources/Escape.swift",
+                "counts": counts(covered: 0, uncovered: 1, executable: 1),
+                "coveredLines": [],
+                "uncoveredLines": [1],
+            ],
+            [
+                "path": "Sources/Missing.swift",
+                "counts": counts(covered: 0, uncovered: 1, executable: 1),
+                "coveredLines": [],
+                "uncoveredLines": [1],
+            ],
+        ]
+        value["totals"] = counts(covered: 1, uncovered: 3, executable: 4)
+        value["policy"] = ["status": "failed", "threshold": 60, "actual": 25]
+
+        let sources = LocalPRCoverageSourceLoader().load(for: try validate(value), repositoryRoot: root)
+
+        #expect(sources == ["Sources/A.swift": "one\ntwo\nthree\n"])
     }
 
     private func report() -> [String: Any] {

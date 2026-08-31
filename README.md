@@ -26,12 +26,13 @@ platform-neutral and also run in the project's Linux development orb.
 ## Install a release binary
 
 Each GitHub Release includes native `macos-arm64`, `macos-x86_64`, and
-`linux-x86_64` archives plus `SHA256SUMS`. Pin the version you choose; do not
-pipe an unpinned network response into a shell. For example, install the first
-binary-bearing release, v0.3.0, on Linux x86_64:
+`linux-x86_64` archives plus `SHA256SUMS`. Starting with v0.9.0, every archive
+contains both `what-coverage` and `what-coverage-pr-comment`. Pin the version you
+choose; do not pipe an unpinned network response into a shell. For example,
+install v0.9.0 on Linux x86_64:
 
 ```sh
-version=0.3.0
+version=0.9.0
 archive="what-coverage-v${version}-linux-x86_64.tar.gz"
 base="https://github.com/junebash/WhatCoverage/releases/download/v${version}"
 curl -fLO "$base/$archive"
@@ -39,6 +40,7 @@ curl -fLO "$base/SHA256SUMS"
 grep " $archive$" SHA256SUMS | sha256sum --check
 tar -xzf "$archive"
 install -m 755 what-coverage ~/.local/bin/what-coverage
+install -m 755 what-coverage-pr-comment ~/.local/bin/what-coverage-pr-comment
 ```
 
 On macOS, substitute `macos-arm64` or `macos-x86_64` in the archive name and
@@ -47,14 +49,15 @@ verify with `shasum -a 256 -c` after extracting the matching line from
 flow:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/junebash/WhatCoverage/v0.3.0/scripts/install.sh
-bash install.sh --version 0.3.0 --prefix ~/.local
+curl -fsSLO https://raw.githubusercontent.com/junebash/WhatCoverage/v0.9.0/scripts/install.sh
+bash install.sh --version 0.9.0 --prefix ~/.local
 ```
 
 Add `~/.local/bin` to `PATH` if needed, then confirm the installed archive:
 
 ```sh
 what-coverage --help
+what-coverage-pr-comment --help
 ```
 
 ## Build
@@ -63,6 +66,7 @@ Clone the repository and build the executable with Swift Package Manager:
 
 ```sh
 swift build -c release --product what-coverage
+swift build -c release --product what-coverage-pr-comment
 .build/release/what-coverage --help
 ```
 
@@ -158,10 +162,12 @@ Only executable lines added or modified on the head side contribute to the
 denominator. Deleted lines, binary files, and submodules do not. Renames use the
 head-side path.
 
-Current whole-project coverage aggregates every normalized repository-relative
-file in the head artifact, including files excluded from changed-line coverage
-by path rules. It is informational and does not affect changed-line policy or
-exit status. With no executable lines it is `N/A`, not 0% or 100%.
+Current whole-project coverage aggregates normalized repository-relative files
+in the head artifact. It is informational and does not affect changed-line
+policy or exit status. Schema v1 and schema v2's default include files excluded
+from changed-line coverage; schema v2 can apply the same path selection with
+`path_scope.whole_project = true`. With no selected executable lines it is
+`N/A`, not 0% or 100%.
 
 Whole-project delta instead compares every normalized file with executable lines
 in the union of the base and head artifacts. It reports each side's executable
@@ -172,20 +178,32 @@ side. If either side has no executable lines, its percentage and the change are
 are portable source-layout groups because LLVM and Xcode line artifacts do not
 share build-target metadata: `Sources/<name>` and `Tests/<name>` use `<name>`,
 other nested paths use their first component, and root files use `(root)`.
-Configured path rules and `--minimum` apply only to changed-line coverage; delta
-does not affect policy or exit status.
+Schema v2 can also apply path selection to delta with
+`path_scope.coverage_delta = true`. Delta never affects policy or exit status.
 
 ### Coverage configuration
 
 The versioned configuration can define a repository-wide minimum and path
 selection. A measured percentage equal to the minimum passes; one below it
-fails. Path rules select changed files before diff coverage is calculated, so
-they affect changed-line file rows, totals, policy, and exit status equally;
-they do not filter current whole-project coverage or delta:
+fails. Schema v1 preserves the original behavior: path rules affect only
+changed-line file rows, totals, policy, and exit status. Schema v2 adds explicit
+scope and optional SonarQube property import:
 
 ```toml
-schema_version = 1
+schema_version = 2
 minimum = 60
+
+[path_scope]
+changed_lines = true
+whole_project = true
+coverage_delta = true
+
+[sonar]
+properties_file = "sonar-project.properties"
+use_sources_as_allowlist = true
+use_exclusions = true
+use_coverage_exclusions = true
+use_test_paths_as_exclusions = true
 
 [[paths]]
 pattern = "Sources/**/*.swift"
@@ -201,23 +219,64 @@ action = "include"
 ```
 
 Paths are normalized repository-relative `/` paths. Rules are evaluated in file
-order and the last matching rule wins. Unmatched files are included, so an
+order and the last matching rule wins. Imported Sonar rules run first, in the
+order `sonar.sources` allowlist, `sonar.exclusions`,
+`sonar.coverage.exclusions`, and `sonar.tests`; explicit `[[paths]]` rules can
+therefore override them. Unmatched files are included, so an
 allowlist starts with `pattern = "**"` and `action = "exclude"`. `*` matches
 zero or more non-`/` characters in one component, `?` matches one non-`/`
 character, and a `**` component matches zero or more components. Matching is
 case-sensitive; dotfiles and Unicode have no special treatment. Bracket classes,
 brace expansion, negation, and escapes are not glob features.
 
+In schema v2 and imported Sonar settings, a pattern with no `*` or `?` is a
+directory-tree token: `Tests` has the same selection effect on repository files
+as `Tests/**`. Existing wildcard patterns are not rewritten; `Tests/**` and
+`Tests/**/*` retain their normal glob meanings and both select files below
+`Tests`. Schema v1 keeps its exact matching, so its bare `Tests` pattern does not
+match `Tests/AppTests.swift`.
+
+The Sonar importer reads comma-separated values and Java-properties `\` line
+continuations from the four selected keys. Missing keys are harmless and other
+Sonar properties are ignored. A missing properties file, property escapes,
+empty entries, absolute or malformed paths, and unsupported brace, character
+class, or negation patterns are invocation errors rather than silently changed
+semantics. `properties_file` is relative to `.whatcoverage.toml` (or the file
+selected by `--config`). Each `use_...` option defaults to `false`.
+
 Patterns must be nonempty, relative, slash-separated, and canonical. Absolute,
 drive-rooted, backslash, empty-component, `.`, `..`, and embedded-`**` patterns
-are rejected. The parser strictly requires `schema_version = 1`; each optional
+are rejected. The parser requires `schema_version = 1` or `2`; each optional
 `[[paths]]` table requires quoted `pattern` and `action` strings.
 `minimum` must be an unquoted, finite number from 0 through 100 and must precede
-the first `[[paths]]` table. It is optional, as are path rules. The parser
+the first table header. It is optional, as are path rules. The parser
 rejects unknown or duplicate keys, malformed values, unsupported schema
 versions, and invalid rules as invocation errors. No TOML dependency is used:
 the implementation intentionally accepts only this small, validated TOML subset
 rather than introducing a supply-chain dependency.
+
+### Rich pull-request comments in generic CI
+
+The flat `--markdown-output` report remains suitable for job summaries. For the
+same rich comment used by this repository's GitHub workflow—including the stable
+marker, status, diff and whole-project totals, collapsed uncovered source, and
+collapsed file table—render the JSON report from a trusted local checkout:
+
+```sh
+what-coverage-pr-comment render \
+  --report what-coverage-report.json \
+  --head "$CM_COMMIT" \
+  --repo-root . \
+  --run-url "https://codemagic.io/app/.../build/..." \
+  --output coverage-comment.md
+```
+
+Post `coverage-comment.md` with the CI provider's sticky-comment mechanism. This
+mode validates the report and reads only bounded UTF-8 source files under
+`--repo-root`; missing, binary, oversized, or escaping symlink targets simply do
+not receive excerpts. It is intended for trusted CI checkouts. It does not
+replace the trust-split GitHub Actions design described in
+[`Documentation/PR_COVERAGE.md`](Documentation/PR_COVERAGE.md).
 
 ### Exit statuses
 

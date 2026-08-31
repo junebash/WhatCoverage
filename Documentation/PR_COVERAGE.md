@@ -11,10 +11,11 @@ element.
 
 The current whole-project value is calculated from every normalized
 repository-relative file in the head coverage artifact already read by the CLI.
-It does not apply changed-file path rules, require a base coverage artifact, or
-represent a delta. It is informational and cannot affect the changed-line policy
-or exit status. If the artifact contains no executable lines, the comment says
-`Not applicable (0/0 executable lines)` instead of displaying 0%.
+Schema v2 can opt into applying path rules to this value; schema v1 and the v2
+default do not. It does not require a base coverage artifact or represent a
+delta. It is informational and cannot affect the changed-line policy or exit
+status. If the selected artifact files contain no executable lines, the comment
+says `Not applicable (0/0 executable lines)` instead of displaying 0%.
 
 The repository's [`.whatcoverage.toml`](../.whatcoverage.toml) sets the required
 changed-line coverage to 60%. The report step selects that file explicitly, so a
@@ -68,6 +69,41 @@ rather than creating duplicates, and the workflow removes accidental duplicate
 comments authored by `github-actions[bot]`. Before writing, it confirms that the
 PR still has the same head SHA, branch, and repository as the completed run, so
 an older run cannot overwrite coverage for a newer push.
+
+## Generic CI and Codemagic
+
+Starting with v0.9.0, release archives ship the same trusted renderer as
+`what-coverage-pr-comment`. A CI job that already trusts its local checkout can
+turn the CLI's JSON report into posting-ready rich Markdown without the GitHub
+Contents API or a Swift source build:
+
+```sh
+what-coverage \
+  --input UnitTests.xcresult \
+  --base origin/develop \
+  --json-output what-coverage-report.json \
+  --markdown-output what-coverage-report.md
+
+what-coverage-pr-comment render \
+  --report what-coverage-report.json \
+  --head "$CM_COMMIT" \
+  --repo-root . \
+  --run-url "https://codemagic.io/app/.../build/..." \
+  --output coverage-comment.md
+```
+
+The first Markdown remains the flat report for summaries and simple comments.
+The second contains the stable marker, policy status, diff and whole-project
+counts, collapsed uncovered-source excerpts, collapsed verbose file table, and
+run link. The host CI owns sticky-comment upsert.
+
+Local mode accepts any report filename and tolerates unrelated sibling files.
+It still validates the report and applies the same source and comment caps.
+Only regular UTF-8 files resolving beneath `--repo-root` are read; missing,
+binary, oversized, and escaping symlink paths are omitted. Use this mode only in
+a trusted checkout. Fork pull requests using a write-capable GitHub token should
+retain the two-workflow design above; shipping the executable does not alter
+that trust boundary.
 
 ## Operational notes
 
