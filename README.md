@@ -68,6 +68,28 @@ packages:
     registry: whatcoverage
 ```
 
+Because aqua requires an explicit policy for non-standard registries, add the
+following reviewed `aqua-policy.yaml` beside the aqua configuration:
+
+```yaml
+registries:
+  - name: whatcoverage
+    type: github_content
+    repo_owner: junebash
+    repo_name: WhatCoverage
+    ref: 'Version == "v0.10.0"'
+    path: aqua/registry.yaml
+packages:
+  - registry: whatcoverage
+```
+
+Approve that policy once, then install:
+
+```sh
+aqua policy allow aqua-policy.yaml
+aqua install
+```
+
 The registry reference is an immutable WhatCoverage Git tag. Its definition
 maps aqua's Linux/macOS architectures to the release assets, exposes both
 executables, and verifies each archive with that release's `SHA256SUMS`.
