@@ -91,6 +91,8 @@ enum PathConfigurationLoader {
         var section = Section.topLevel
         var pathScope: [String: Bool] = [:]
         var sonar: [String: String] = [:]
+        var hasPathScope = false
+        var hasSonar = false
         for (index, rawLine) in text.split(omittingEmptySubsequences: false, whereSeparator: \Character.isNewline).enumerated() {
             let lineNumber = index + 1
             let line = try uncomment(String(rawLine), url: url, line: lineNumber).trimmingCharacters(in: .whitespaces)
@@ -101,10 +103,14 @@ enum PathConfigurationLoader {
                 continue
             }
             if line == "[path_scope]" {
+                guard !hasPathScope else { throw error(url, lineNumber, "duplicate table path_scope") }
+                hasPathScope = true
                 section = .pathScope
                 continue
             }
             if line == "[sonar]" {
+                guard !hasSonar else { throw error(url, lineNumber, "duplicate table sonar") }
+                hasSonar = true
                 section = .sonar
                 continue
             }
@@ -162,8 +168,11 @@ enum PathConfigurationLoader {
         }
         guard let version else { throw WhatCoverageError.invocation("\(url.path): missing required schema_version") }
         guard version == 1 || version == 2 else { throw WhatCoverageError.invocation("\(url.path): unsupported schema_version \(version); this executable supports versions 1 and 2") }
-        guard version == 2 || pathScope.isEmpty && sonar.isEmpty else {
+        guard version == 2 || !hasPathScope && !hasSonar else {
             throw WhatCoverageError.invocation("\(url.path): path_scope and sonar require schema_version = 2")
+        }
+        guard !hasSonar || sonar["properties_file"] != nil else {
+            throw WhatCoverageError.invocation("\(url.path): sonar.properties_file is required when [sonar] is present")
         }
         let explicitRules = try rules.enumerated().map { index, rule in
             guard let pattern = rule.values["pattern"] else { throw error(url, rule.line, "paths rule \(index + 1) is missing pattern") }
@@ -292,6 +301,11 @@ private enum SonarProperties {
         for (index, rawLine) in text.split(omittingEmptySubsequences: false, whereSeparator: \Character.isNewline).enumerated() {
             var line = String(rawLine)
             if pending.isEmpty { pendingLine = index + 1 } else { line = line.trimmingCharacters(in: .whitespaces) }
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if pending.isEmpty && (trimmed.hasPrefix("#") || trimmed.hasPrefix("!")) {
+                logicalLines.append((pendingLine, line))
+                continue
+            }
             let slashCount = line.reversed().prefix(while: { $0 == "\\" }).count
             if slashCount % 2 == 1 {
                 line.removeLast()
@@ -318,6 +332,9 @@ private enum SonarProperties {
             }
             let value = String(line[valueStart...]).trimmingCharacters(in: .whitespaces)
             guard !key.isEmpty else { throw WhatCoverageError.invocation("\(url.path):\(logical.line): empty property key") }
+            guard !key.contains("\\") else {
+                throw WhatCoverageError.invocation("\(url.path):\(logical.line): property escapes are unsupported in Sonar property keys")
+            }
             result[key] = value
         }
         return result

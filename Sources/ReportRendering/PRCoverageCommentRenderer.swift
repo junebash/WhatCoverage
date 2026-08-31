@@ -90,7 +90,7 @@ public struct LocalPRCoverageSourceLoader: Sendable {
                   let size = (attributes[.size] as? NSNumber)?.intValue,
                   size <= limits.sourceBytesPerFile,
                   totalBytes + size <= limits.sourceBytesTotal,
-                  let data = try? Data(contentsOf: file),
+                  let data = read(file, maximumBytes: size + 1),
                   data.count == size,
                   !data.contains(0),
                   let text = String(data: data, encoding: .utf8)
@@ -101,6 +101,12 @@ public struct LocalPRCoverageSourceLoader: Sendable {
             totalBytes += size
         }
         return sources
+    }
+
+    private func read(_ url: URL, maximumBytes: Int) -> Data? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        return try? handle.read(upToCount: maximumBytes)
     }
 }
 

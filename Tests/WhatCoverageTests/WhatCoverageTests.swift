@@ -238,7 +238,6 @@ import Testing
         sonar.coverage.exclusions=**/Generated/**,\
           **/*ViewController.swift
         sonar.projectKey=ignored
-        sonar.projectName=Redzone\\ iOS
         """.utf8).write(to: repository.appending(path: "sonar-project.properties"))
         try Data("""
         schema_version = 2
@@ -286,6 +285,33 @@ import Testing
         try Data("schema_version = 2\n[sonar]\nproperties_file = \"sonar-project.properties\"\nuse_coverage_exclusions = true\n".utf8).write(to: configuration)
         #expect(throws: WhatCoverageError.self) {
             try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        }
+
+        try Data("sonar\\.coverage.exclusions=Generated/**\n".utf8).write(to: repository.appending(path: "sonar-project.properties"))
+        #expect(throws: WhatCoverageError.self) {
+            try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        }
+
+        try Data(("# This comment does not continue " + "\\" + "\nsonar.coverage.exclusions=Generated/**\n").utf8)
+            .write(to: repository.appending(path: "sonar-project.properties"))
+        let commentConfiguration = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        #expect(!commentConfiguration.pathSelection.includes(try RepositoryPath("Generated/API.swift")))
+    }
+
+    @Test func rejectsEmptyOrDuplicateConfigurationTables() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        let configuration = repository.appending(path: ".whatcoverage.toml")
+        for text in [
+            "schema_version = 1\n[sonar]\n",
+            "schema_version = 2\n[sonar]\n",
+            "schema_version = 2\n[path_scope]\n[path_scope]\n",
+            "schema_version = 2\n[sonar]\nproperties_file = \"sonar-project.properties\"\n[sonar]\n",
+        ] {
+            try Data(text.utf8).write(to: configuration)
+            #expect(throws: WhatCoverageError.self) {
+                try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+            }
         }
     }
 
