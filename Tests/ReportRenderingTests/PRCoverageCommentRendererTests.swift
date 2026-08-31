@@ -16,6 +16,8 @@ import Testing
         #expect(body.contains("~~~~text"))
         #expect(body.contains("Sources/A.swift"))
         #expect(body.contains("Failed: 33.33% is below the required 60.00%"))
+        #expect(body.contains("**Whole-project coverage:** 75.00% (75/100 executable lines)"))
+        #expect(!body.localizedCaseInsensitiveContains("delta"))
     }
 
     @Test func escapesMarkdownTablePathsAndUsesLongerFence() throws {
@@ -50,6 +52,12 @@ import Testing
         var inconsistentPolicy = report()
         inconsistentPolicy["policy"] = ["status": "failed", "threshold": 20, "actual": 100.0 / 3]
         #expect(throws: PRCoverageCommentError.self) { try validate(inconsistentPolicy) }
+
+        var inconsistentWholeProject = report()
+        inconsistentWholeProject["wholeProjectCoverage"] = [
+            "covered": 75, "uncovered": 25, "executable": 100, "percentage": 74,
+        ]
+        #expect(throws: PRCoverageCommentError.self) { try validate(inconsistentWholeProject) }
     }
 
     @Test func rendersPassingAndNotApplicablePolicyOutcomesClearly() throws {
@@ -62,6 +70,18 @@ import Testing
         notApplicable["totals"] = counts(covered: 0, uncovered: 0, executable: 0)
         notApplicable["files"] = []
         #expect(try render(notApplicable).contains("Not applicable: no changed executable lines"))
+
+        notApplicable["wholeProjectCoverage"] = counts(covered: 0, uncovered: 0, executable: 0)
+        let zeroProject = try render(notApplicable)
+        #expect(zeroProject.contains("**Whole-project coverage:** Not applicable (0/0 executable lines)"))
+        #expect(!zeroProject.contains("0.00% (0/0"))
+    }
+
+    @Test func acceptsOlderVersionOneReportWithoutWholeProjectCoverage() throws {
+        var oldReport = report()
+        oldReport.removeValue(forKey: "wholeProjectCoverage")
+
+        #expect(!((try render(oldReport)).contains("Whole-project coverage")))
     }
 
     @Test func truncatesSourceAndOmitsUnavailableExcerpts() throws {
@@ -79,6 +99,9 @@ import Testing
             "comparison": ["resolvedHead": head],
             "policy": ["status": "failed", "threshold": 60, "actual": 100.0 / 3],
             "totals": counts(covered: 1, uncovered: 2, executable: 3),
+            "wholeProjectCoverage": [
+                "covered": 75, "uncovered": 25, "executable": 100, "percentage": 75,
+            ],
             "files": [[
                 "path": "Sources/A.swift",
                 "counts": counts(covered: 1, uncovered: 2, executable: 3),

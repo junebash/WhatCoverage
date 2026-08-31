@@ -55,7 +55,7 @@ import Testing
         try expectGolden(Data(MarkdownReportRenderer().render(document).utf8), named: "delta-report", extension: "md")
     }
 
-    @Test func versionOneSchemaPublishesDeltaAsAnOptionalAdditiveMember() throws {
+    @Test func versionOneSchemaPublishesWholeProjectCoverageAndDeltaAsOptionalAdditiveMembers() throws {
         let repository = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -68,6 +68,8 @@ import Testing
         let deltaRequired = try #require(delta["required"] as? [String])
 
         #expect(!required.contains("coverageDelta"))
+        #expect(!required.contains("wholeProjectCoverage"))
+        #expect(properties["wholeProjectCoverage"] != nil)
         #expect(Set(deltaRequired) == Set(["baseInput", "basePathMapping", "project", "targets", "files"]))
         #expect(JSONReportRenderer.schemaVersion == 1)
     }
@@ -92,7 +94,8 @@ import Testing
                 coverage: coverage,
                 changes: changes,
                 minimum: try Percentage(minimum)
-            )
+            ),
+            wholeProjectCoverage: coverage.wholeProjectCounts
         )
     }
 
@@ -113,7 +116,8 @@ import Testing
                 coverage: try NormalizedCoverage(files: []),
                 changes: try ChangedLines(files: []),
                 minimum: try Percentage(75)
-            )
+            ),
+            wholeProjectCoverage: try NormalizedCoverage(files: []).wholeProjectCounts
         )
     }
 
@@ -139,6 +143,7 @@ import Testing
                 coverage: head,
                 changes: try ChangedLines(files: [])
             ),
+            wholeProjectCoverage: head.wholeProjectCounts,
             coverageDelta: CoverageDeltaDocument(
                 baseInput: CoverageInputMetadata(kind: .llvm, source: "Artifacts/base.json"),
                 basePathMapping: PathMappingMetadata(

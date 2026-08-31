@@ -1,6 +1,7 @@
 import ArgumentParser
 import CoverageModel
 import Foundation
+import ReportRendering
 import Testing
 @testable import WhatCoverage
 
@@ -57,6 +58,7 @@ import Testing
         let base = try git(["rev-parse", "HEAD"], at: repository)
         try Data("unchanged\nchanged\n".utf8).write(to: source)
         try git(["commit", "-am", "head"], at: repository)
+        let head = try git(["rev-parse", "HEAD"], at: repository)
 
         let artifact = repository.appending(path: "coverage.artifact")
         try Data("""
@@ -81,6 +83,14 @@ import Testing
         #expect(markdown.contains("**Policy:** Failed (minimum 100.00%)"))
         #expect(json.contains(#""status" : "failed""#))
         #expect(json.contains(#""capturedSourceRoot" : "/captured""#))
+        #expect(json.contains(#""wholeProjectCoverage""#))
+        #expect(json.contains(#""executable" : 1"#))
+        #expect(!json.contains(#""coverageDelta""#))
+        let validated = try PRCoverageReportValidator().validate(Data(json.utf8), expectedHead: head)
+        let comment = try PRCoverageCommentRenderer().render(validated)
+        #expect(comment.contains("**Diff coverage:** 0.00% (0/1 executable lines)"))
+        #expect(comment.contains("**Whole-project coverage:** 0.00% (0/1 executable lines)"))
+        #expect(!comment.localizedCaseInsensitiveContains("delta"))
     }
 
     @Test func noChangedExecutableLinesSucceedsWithAThreshold() throws {
@@ -148,6 +158,7 @@ import Testing
         let report = try String(contentsOf: repository.appending(path: "report.json"), encoding: .utf8)
         #expect(report.contains(#""coverageDelta""#))
         #expect(report.contains(#""percentagePointChange" : 100"#))
+        #expect(report.contains(#""wholeProjectCoverage""#))
         #expect(report.contains(#""status" : "notApplicable""#))
     }
 
@@ -236,6 +247,10 @@ import Testing
         let json = try String(contentsOf: repository.appending(path: "report.json"), encoding: .utf8)
         #expect(json.contains("Sources/Covered.swift"))
         #expect(!json.contains("Generated/Uncovered.swift"))
+        let jsonObject = try #require(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let wholeProject = try #require(jsonObject["wholeProjectCoverage"] as? [String: Any])
+        #expect(wholeProject["executable"] as? Int == 2)
+        #expect(wholeProject["covered"] as? Int == 1)
 
         let emptyStatus = try WhatCoverageWorkflow().run(WhatCoverageConfiguration(input: artifact.path, format: .llvm, base: base, comparison: .direct, capturedSourceRoot: "/captured", jsonOutput: "empty.json", minimum: try Percentage(100), pathSelection: try PathSelection(rules: [PathRule(pattern: "**", action: .exclude)])), repository: repository)
         #expect(emptyStatus == .success)

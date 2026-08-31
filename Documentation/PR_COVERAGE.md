@@ -3,10 +3,18 @@
 The repository's **PR Coverage** workflow runs on opened, reopened, and updated
 pull requests. It runs the Swift tests with coverage enabled, locates SwiftPM's
 LLVM coverage export, builds `what-coverage`, and compares the PR head against
-its GitHub base SHA. The resulting comment gives the changed-line coverage and
-policy outcome at a glance. A collapsed **Uncovered source** section shows a
-small, line-numbered excerpt around uncovered lines; the per-file table remains
-inside a separate `<details>` element.
+its GitHub base SHA. The resulting comment gives the changed-line coverage,
+current whole-project coverage, and changed-line policy outcome at a glance. A
+collapsed **Uncovered source** section shows a small, line-numbered excerpt
+around uncovered lines; the per-file table remains inside a separate `<details>`
+element.
+
+The current whole-project value is calculated from every normalized
+repository-relative file in the head coverage artifact already read by the CLI.
+It does not apply changed-file path rules, require a base coverage artifact, or
+represent a delta. It is informational and cannot affect the changed-line policy
+or exit status. If the artifact contains no executable lines, the comment says
+`Not applicable (0/0 executable lines)` instead of displaying 0%.
 
 The repository's [`.whatcoverage.toml`](../.whatcoverage.toml) sets the required
 changed-line coverage to 60%. The report step selects that file explicitly, so a
@@ -34,7 +42,8 @@ The workflow is deliberately split in two:
    PR code. With
    `actions: read`, `contents: read`, and `pull-requests: read`, it independently
    matches the run to the current PR, downloads the artifact, validates all
-   counts, paths, and line lists against strict size limits, then fetches small
+   changed-line and whole-project counts, paths, and line lists against strict
+   size limits, then fetches small
    source files from GitHub's Contents API at the verified PR-head SHA. It
    renders new Markdown from those validated values. A separate job receives
    only the rendered body and has `pull-requests: write` to upsert the comment.

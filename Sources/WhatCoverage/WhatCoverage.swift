@@ -193,6 +193,7 @@ public struct WhatCoverageWorkflow: Sendable {
                 pathMapping: PathMappingMetadata(repositoryRoot: root.path, capturedSourceRoot: configuration.capturedSourceRoot)
             ),
             result: result,
+            wholeProjectCoverage: coverage.wholeProjectCounts,
             coverageDelta: coverageDelta
         )
         do {

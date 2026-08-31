@@ -57,5 +57,11 @@
     "executable" : 3,
     "percentage" : 33.333333333333336,
     "uncovered" : 2
+  },
+  "wholeProjectCoverage" : {
+    "covered" : 1,
+    "executable" : 3,
+    "percentage" : 33.333333333333336,
+    "uncovered" : 2
   }
 }

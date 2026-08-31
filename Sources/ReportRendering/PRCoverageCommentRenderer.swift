@@ -61,6 +61,7 @@ public struct ValidatedPRCoverageReport: Equatable, Sendable {
     }
 
     public let totals: Counts
+    public let wholeProjectCoverage: Counts?
     public let files: [File]
     public let policy: Policy
 
@@ -100,6 +101,18 @@ public struct PRCoverageReportValidator: Sendable {
         }
 
         let totals = try counts(root["totals"], label: "totals")
+        let wholeProjectCoverage: ValidatedPRCoverageReport.Counts?
+        if root.keys.contains("wholeProjectCoverage") {
+            let value = try counts(root["wholeProjectCoverage"], label: "whole-project coverage")
+            try validatePercentage(
+                root["wholeProjectCoverage"],
+                counts: value,
+                label: "whole-project coverage"
+            )
+            wholeProjectCoverage = value
+        } else {
+            wholeProjectCoverage = nil
+        }
         var paths = Set<String>()
         var files: [ValidatedPRCoverageReport.File] = []
         var aggregateCovered = 0
@@ -169,6 +182,7 @@ public struct PRCoverageReportValidator: Sendable {
 
         return ValidatedPRCoverageReport(
             totals: totals,
+            wholeProjectCoverage: wholeProjectCoverage,
             files: files,
             policy: .init(status: status, threshold: threshold, actual: policyActual)
         )
@@ -206,6 +220,24 @@ public struct PRCoverageReportValidator: Sendable {
             throw invalid(label)
         }
         return .init(covered: covered, uncovered: uncovered, executable: executable)
+    }
+
+    private func validatePercentage(
+        _ value: Any?,
+        counts: ValidatedPRCoverageReport.Counts,
+        label: String
+    ) throws {
+        guard let value = dictionary(value) else { throw invalid(label) }
+        if counts.executable == 0 {
+            guard !value.keys.contains("percentage") else { throw invalid(label) }
+            return
+        }
+        let expected = Double(counts.covered) * 100 / Double(counts.executable)
+        guard let actual = percentage(value["percentage"]),
+              abs(actual - expected) <= Double.ulpOfOne * max(1, expected)
+        else {
+            throw invalid(label)
+        }
     }
 
     private func optionalPercentage(
@@ -343,8 +375,14 @@ public struct PRCoverageCommentRenderer: Sendable {
             status,
             "",
             "**Diff coverage:** \(percent) (\(report.totals.covered)/\(report.totals.executable) executable lines)",
-            "",
         ]
+        if let wholeProject = report.wholeProjectCoverage {
+            let current = wholeProject.executable == 0
+                ? "Not applicable"
+                : format(Double(wholeProject.covered) * 100 / Double(wholeProject.executable))
+            bodyParts.append("**Whole-project coverage:** \(current) (\(wholeProject.covered)/\(wholeProject.executable) executable lines)")
+        }
+        bodyParts.append("")
         bodyParts.append(contentsOf: sourceSection)
         if !sourceSection.isEmpty { bodyParts.append("") }
         bodyParts.append(contentsOf: [

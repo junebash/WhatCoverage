@@ -131,8 +131,21 @@ LLVM export and line-level Xcode archive JSON do not share a portable build-targ
 identifier. Target granularity is therefore a documented source-layout grouping:
 `Sources/<name>` and `Tests/<name>` use `<name>`, other nested paths use the first
 component, and root files use `(root)`. The optional `coverageDelta` JSON member
-is an additive version-1 extension under D-011; reports without a base artifact
-remain byte-for-byte compatible.
+is an additive version-1 extension under D-011.
+
+### D-016: Derive current whole-project coverage from normalized head coverage
+
+Every CLI report aggregates current executable and covered counts across all
+canonical repository-relative files in the normalized `--input` value. It does
+not read the artifact again, require `--base-input`, use the Git diff, apply
+changed-file path selection, or affect threshold policy and exit status. A zero
+executable-line artifact has no percentage and renders as not applicable.
+
+Version 1 JSON carries this as the additive optional `wholeProjectCoverage`
+member so existing consumers and trusted comment renderers can continue to
+accept older reports. Its name and PR-comment presentation describe only the
+current head total; percentage-point change remains exclusive to
+`coverageDelta` when a base artifact is explicitly supplied.
 
 ## Pending
 

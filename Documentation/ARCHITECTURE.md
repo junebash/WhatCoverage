@@ -108,6 +108,10 @@ provider-independent revision, artifact, and path-mapping metadata before it
 crosses the rendering boundary. JSON version 1 is published as
 `Documentation/whatcoverage-report-v1.schema.json`; Markdown formats percentages
 to two decimal places for display while JSON preserves the model's full value.
+The report document also carries current whole-project counts aggregated once
+from every file in the already-normalized head coverage. This value is
+independent of changed-line path selection and policy. A zero denominator has no
+percentage and renders as not applicable.
 
 The same module owns the PR-comment boundary for a previously rendered JSON
 report. `PRCoverageReportValidator` treats workflow artifacts as untrusted,
@@ -149,6 +153,7 @@ future integrations:
 - deterministic per-file results
 - optional threshold
 - policy outcome: passed, failed, or not applicable
+- optional current whole-project head counts and percentage
 - optional base coverage input and path mapping
 - optional project, target, and file base/head whole-project counts,
   percentages, and percentage-point changes

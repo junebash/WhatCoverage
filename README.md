@@ -5,7 +5,8 @@ changed by this work covered by tests?** It reads an existing SwiftPM LLVM JSON
 export or Xcode `.xcresult`, intersects its line coverage with a Git diff, and
 writes provider-neutral Markdown and/or versioned JSON reports. With a second
 base artifact, it also reports whole-project coverage change independently of
-the diff.
+the diff. Every report includes current whole-project coverage from the head
+artifact without requiring that second artifact.
 
 WhatCoverage does not run tests, upload results, or contact a CI or source-hosting
 service. The build that produces the coverage artifact remains a separate step.
@@ -157,6 +158,11 @@ Only executable lines added or modified on the head side contribute to the
 denominator. Deleted lines, binary files, and submodules do not. Renames use the
 head-side path.
 
+Current whole-project coverage aggregates every normalized repository-relative
+file in the head artifact, including files excluded from changed-line coverage
+by path rules. It is informational and does not affect changed-line policy or
+exit status. With no executable lines it is `N/A`, not 0% or 100%.
+
 Whole-project delta instead compares every normalized file with executable lines
 in the union of the base and head artifacts. It reports each side's executable
 and covered counts, coverage percentage, and the percentage-point change at
@@ -173,9 +179,9 @@ does not affect policy or exit status.
 
 The versioned configuration can define a repository-wide minimum and path
 selection. A measured percentage equal to the minimum passes; one below it
-fails. Path rules select changed files before coverage is calculated, so they
-affect file rows, totals, JSON, policy, exit status, and PR-comment artifacts
-equally:
+fails. Path rules select changed files before diff coverage is calculated, so
+they affect changed-line file rows, totals, policy, and exit status equally;
+they do not filter current whole-project coverage or delta:
 
 ```toml
 schema_version = 1

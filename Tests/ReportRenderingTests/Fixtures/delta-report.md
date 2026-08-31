@@ -1,6 +1,7 @@
 # WhatCoverage
 
 **Diff coverage:** Not applicable (no changed executable lines)
+**Whole-project coverage:** 66.67% (2/3)
 **Policy:** Not applicable
 **Comparison:** `origin/main...HEAD` (`aaaaaaa` → `bbbbbbb`)
 **Coverage input:** Xcode — `Artifacts/Tests.xcresult`

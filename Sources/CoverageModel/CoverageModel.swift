@@ -77,6 +77,15 @@ public struct NormalizedCoverage: Equatable, Sendable {
         }
         self.files = indexed
     }
+
+    public var wholeProjectCounts: CoverageCounts {
+        CoverageCounts(
+            executable: files.values.reduce(0) { $0 + $1.lines.count },
+            covered: files.values.reduce(0) { total, file in
+                total + file.lines.values.count(where: { $0 > 0 })
+            }
+        )
+    }
 }
 
 public struct ChangedFile: Equatable, Sendable {
@@ -347,15 +356,18 @@ public struct ReportMetadata: Equatable, Sendable {
 public struct CoverageReportDocument: Equatable, Sendable {
     public let metadata: ReportMetadata
     public let result: DiffCoverageReport
+    public let wholeProjectCoverage: CoverageCounts?
     public let coverageDelta: CoverageDeltaDocument?
 
     public init(
         metadata: ReportMetadata,
         result: DiffCoverageReport,
+        wholeProjectCoverage: CoverageCounts? = nil,
         coverageDelta: CoverageDeltaDocument? = nil
     ) {
         self.metadata = metadata
         self.result = result
+        self.wholeProjectCoverage = wholeProjectCoverage
         self.coverageDelta = coverageDelta
     }
 }

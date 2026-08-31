@@ -55,6 +55,17 @@ design decisions.
 - **CALC-006:** A configurable minimum percentage can fail the policy without
   hiding the calculated report.
 
+## Current whole-project coverage
+
+- **TOTAL-001:** Every report includes executable and covered line counts from
+  all canonical repository-relative files in the normalized head artifact,
+  independently of the Git diff and configured changed-file path selection.
+- **TOTAL-002:** Current whole-project coverage is informational and does not
+  affect changed-line threshold policy or process exit status.
+- **TOTAL-003:** When the normalized head artifact has no executable lines,
+  current whole-project coverage is not applicable; reports omit its percentage
+  rather than substituting zero or one hundred percent.
+
 ## Whole-project coverage delta
 
 - **DELTA-001:** When given base and head coverage artifacts, compare their
@@ -85,6 +96,8 @@ design decisions.
   failure.
 - **OUT-007:** When requested, both report formats include deterministic
   whole-project delta and identify the base artifact and its path mapping.
+- **OUT-008:** Both report formats include current whole-project coverage from
+  the head artifact without requiring a base artifact or implying a delta.
 
 ## Command-line behavior
 

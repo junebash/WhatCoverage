@@ -31,6 +31,7 @@ private struct JSONReport: Encodable {
     let totals: Counts
     let files: [FileResult]
     let policy: Policy
+    let wholeProjectCoverage: Counts?
     let coverageDelta: CoverageDelta?
 
     init(_ document: CoverageReportDocument) {
@@ -41,6 +42,7 @@ private struct JSONReport: Encodable {
         totals = Counts(document.result.totals)
         files = document.result.files.sorted { $0.path < $1.path }.map(FileResult.init)
         policy = Policy(document.result.policy)
+        wholeProjectCoverage = document.wholeProjectCoverage.map(Counts.init)
         coverageDelta = document.coverageDelta.map(CoverageDelta.init)
     }
 }

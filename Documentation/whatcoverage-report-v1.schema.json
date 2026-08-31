@@ -65,6 +65,7 @@
         }
       }
     },
+    "wholeProjectCoverage": {"$ref": "#/$defs/counts"},
     "totals": {"$ref": "#/$defs/counts"},
     "files": {
       "type": "array",

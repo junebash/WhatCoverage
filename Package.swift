@@ -56,6 +56,7 @@ let package = Package(
             name: "WhatCoverageTests",
             dependencies: [
                 "WhatCoverage",
+                "ReportRendering",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),

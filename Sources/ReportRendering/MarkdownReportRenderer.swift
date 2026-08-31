@@ -14,6 +14,9 @@ public struct MarkdownReportRenderer: Sendable {
         } else {
             lines.append("**Diff coverage:** Not applicable (no changed executable lines)")
         }
+        if let counts = document.wholeProjectCoverage {
+            lines.append("**Whole-project coverage:** \(coverage(counts))")
+        }
         lines.append("**Policy:** \(policy(result.policy))")
         let separator = metadata.revision.mode == .mergeBase ? "..." : ".."
         lines.append("**Comparison:** \(code(metadata.revision.requestedBase + separator + metadata.revision.requestedHead)) (\(code(metadata.revision.resolvedBase)) → \(code(metadata.revision.resolvedHead)))")
