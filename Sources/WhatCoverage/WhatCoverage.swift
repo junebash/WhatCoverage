@@ -48,6 +48,7 @@ public struct WhatCoverageConfiguration: Sendable {
     public let jsonOutput: String?
     public let minimum: Percentage?
     public let pathSelection: PathSelection
+    public let pathScope: PathScope
 
     public init(
         input: String,
@@ -62,7 +63,8 @@ public struct WhatCoverageConfiguration: Sendable {
         markdownOutput: String? = nil,
         jsonOutput: String? = nil,
         minimum: Percentage? = nil,
-        pathSelection: PathSelection = PathSelection()
+        pathSelection: PathSelection = PathSelection(),
+        pathScope: PathScope = PathScope()
     ) {
         self.input = input
         self.format = format
@@ -77,6 +79,7 @@ public struct WhatCoverageConfiguration: Sendable {
         self.jsonOutput = jsonOutput
         self.minimum = minimum
         self.pathSelection = pathSelection
+        self.pathScope = pathScope
     }
 }
 
@@ -148,6 +151,12 @@ public struct WhatCoverageWorkflow: Sendable {
                 mapper: baseMapper,
                 repository: root
             )
+            let deltaBase = configuration.pathScope.coverageDelta
+                ? try configuration.pathSelection.filter(baseCoverage)
+                : baseCoverage
+            let deltaHead = configuration.pathScope.coverageDelta
+                ? try configuration.pathSelection.filter(coverage)
+                : coverage
             coverageDelta = CoverageDeltaDocument(
                 baseInput: CoverageInputMetadata(
                     kind: baseFormat == .llvm ? .llvm : .xcode,
@@ -157,7 +166,7 @@ public struct WhatCoverageWorkflow: Sendable {
                     repositoryRoot: root.path,
                     capturedSourceRoot: configuration.baseCapturedSourceRoot
                 ),
-                result: CoverageDeltaCalculator.calculate(base: baseCoverage, head: coverage)
+                result: CoverageDeltaCalculator.calculate(base: deltaBase, head: deltaHead)
             )
         } else {
             coverageDelta = nil
@@ -177,9 +186,14 @@ public struct WhatCoverageWorkflow: Sendable {
 
         let result = DiffCoverageCalculator.calculate(
             coverage: coverage,
-            changes: try configuration.pathSelection.filter(diff.changes),
+            changes: configuration.pathScope.changedLines
+                ? try configuration.pathSelection.filter(diff.changes)
+                : diff.changes,
             minimum: configuration.minimum
         )
+        let wholeProjectCoverage = configuration.pathScope.wholeProject
+            ? try configuration.pathSelection.filter(coverage).wholeProjectCounts
+            : coverage.wholeProjectCounts
         let document = CoverageReportDocument(
             metadata: ReportMetadata(
                 revision: RevisionMetadata(
@@ -193,7 +207,7 @@ public struct WhatCoverageWorkflow: Sendable {
                 pathMapping: PathMappingMetadata(repositoryRoot: root.path, capturedSourceRoot: configuration.capturedSourceRoot)
             ),
             result: result,
-            wholeProjectCoverage: coverage.wholeProjectCounts,
+            wholeProjectCoverage: wholeProjectCoverage,
             coverageDelta: coverageDelta
         )
         do {
@@ -324,7 +338,8 @@ public struct WhatCoverageCommand: ParsableCommand {
             markdownOutput: markdownOutput,
             jsonOutput: jsonOutput,
             minimum: minimum,
-            pathSelection: fileConfiguration.pathSelection
+            pathSelection: fileConfiguration.pathSelection,
+            pathScope: fileConfiguration.pathScope
         )
         let status = try WhatCoverageWorkflow().run(configuration, repository: repository)
         if status != .success { throw ExitCode(rawValue: status.rawValue) }

@@ -109,9 +109,10 @@ crosses the rendering boundary. JSON version 1 is published as
 `Documentation/whatcoverage-report-v1.schema.json`; Markdown formats percentages
 to two decimal places for display while JSON preserves the model's full value.
 The report document also carries current whole-project counts aggregated once
-from every file in the already-normalized head coverage. This value is
-independent of changed-line path selection and policy. A zero denominator has no
-percentage and renders as not applicable.
+from the already-normalized head coverage. Schema v2 configuration may filter
+that value through the same path selection used for changed lines; compatibility
+defaults leave it unfiltered. It remains independent of policy. A zero
+denominator has no percentage and renders as not applicable.
 
 The same module owns the PR-comment boundary for a previously rendered JSON
 report. `PRCoverageReportValidator` treats workflow artifacts as untrusted,
@@ -131,8 +132,10 @@ or Git parsing logic. Argument errors occur before input parsing or Git work;
 threshold failures occur only after every requested report has been written.
 
 The CLI resolves the Git top-level directory before loading `.whatcoverage.toml`.
-Its strict version-1 parser validates an optional minimum and ordered path rules,
-then filters changed head-side files once before `DiffCoverageCalculator`. An
+Its strict versioned parser validates an optional minimum and ordered path rules.
+Version 2 additionally owns path scope and selected Sonar-properties import,
+placing imported rules before explicit overrides. It filters each configured
+input once before its calculator. An
 explicit `--minimum` takes precedence over the file. This single boundary keeps
 Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
 artifacts consistent. Threshold evaluation remains in the pure calculator; the
@@ -175,12 +178,18 @@ Errors are grouped by action the caller can take:
 A policy failure is a valid completed calculation, so requested reports are
 written before the process returns its threshold-failure status.
 
+The released `what-coverage-pr-comment` keeps strict artifact-layout and
+base64-output commands for the trusted GitHub workflow. Its separate local mode
+accepts a normal report path, resolves bounded validated source paths beneath a
+trusted checkout without following escaping symlinks, and writes UTF-8 Markdown.
+
 ## Extension: base-versus-head delta
 
 Coverage delta consumes two values from the existing normalized coverage
 boundary and produces a separate comparison result. It is never inferred from
 diff coverage. `--input` remains the head artifact; optional `--base-input` and
 its independent format and captured-root options enable delta. The delta uses
-all normalized files, ignores changed-file selection and threshold policy, and
-cannot change the process exit status. Version 1 JSON includes it as the
+all normalized files by default; schema v2 may apply path selection symmetrically
+to base and head. It ignores threshold policy and cannot change the process exit
+status. Version 1 JSON includes it as the
 optional additive `coverageDelta` member.

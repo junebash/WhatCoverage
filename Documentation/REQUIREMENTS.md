@@ -58,8 +58,9 @@ design decisions.
 ## Current whole-project coverage
 
 - **TOTAL-001:** Every report includes executable and covered line counts from
-  all canonical repository-relative files in the normalized head artifact,
-  independently of the Git diff and configured changed-file path selection.
+  canonical repository-relative files in the normalized head artifact,
+  independently of the Git diff. Configuration may select whether path rules
+  filter this total; compatibility defaults leave it unfiltered.
 - **TOTAL-002:** Current whole-project coverage is informational and does not
   affect changed-line threshold policy or process exit status.
 - **TOTAL-003:** When the normalized head artifact has no executable lines,
@@ -72,7 +73,8 @@ design decisions.
   normalized whole-project executable and covered line counts.
 - **DELTA-002:** Report base percentage, head percentage, and percentage-point
   change at project, target, and file granularity independently of the Git line
-  diff, changed-file path selection, and changed-line threshold policy.
+  diff and changed-line threshold policy. Configuration may apply the same path
+  selection to both artifacts; compatibility defaults leave delta unfiltered.
 - **DELTA-003:** Compare the union of canonical repository-relative files with
   executable lines in either artifact. An absent file contributes zero
   executable and covered lines on that side.
@@ -124,6 +126,17 @@ design decisions.
   `--no-config` disables both configured policy and path selection.
 - **CLI-011:** An optional base coverage input, independently inferred or
   selected format, and captured source root enable whole-project delta.
+- **CLI-012:** Version 2 configuration can independently apply ordered path
+  selection to changed lines, current whole-project coverage, and coverage
+  delta while version 1 behavior remains unchanged.
+- **CLI-013:** Version 2 configuration can import selected comma-separated,
+  continued `sonar-project.properties` source, test, general exclusion, and
+  coverage-exclusion paths before explicit WhatCoverage overrides.
+- **CLI-014:** Version 2 bare directory tokens select their trees; version 1
+  retains exact-path semantics.
+- **CLI-015:** The released comment executable can validate any named report in
+  trusted local mode, load bounded source excerpts beneath a checkout root, and
+  write posting-ready UTF-8 Markdown without changing the strict artifact mode.
 
 ## Quality attributes
 

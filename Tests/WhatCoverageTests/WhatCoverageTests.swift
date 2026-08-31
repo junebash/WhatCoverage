@@ -160,6 +160,36 @@ import Testing
         #expect(report.contains(#""percentagePointChange" : 100"#))
         #expect(report.contains(#""wholeProjectCoverage""#))
         #expect(report.contains(#""status" : "notApplicable""#))
+
+        let scopedStatus = try WhatCoverageWorkflow().run(
+            WhatCoverageConfiguration(
+                input: headArtifact.path,
+                format: .llvm,
+                base: baseRevision,
+                comparison: .direct,
+                capturedSourceRoot: "/head",
+                baseInput: baseArtifact.path,
+                baseFormat: .llvm,
+                baseCapturedSourceRoot: "/base",
+                markdownOutput: "scoped.md",
+                jsonOutput: "scoped.json",
+                pathSelection: try PathSelection(rules: [PathRule(pattern: "**", action: .exclude)]),
+                pathScope: PathScope(wholeProject: true, coverageDelta: true)
+            ),
+            repository: repository
+        )
+        #expect(scopedStatus == .success)
+        let scopedData = try Data(contentsOf: repository.appending(path: "scoped.json"))
+        let scoped = try #require(try JSONSerialization.jsonObject(with: scopedData) as? [String: Any])
+        let wholeProject = try #require(scoped["wholeProjectCoverage"] as? [String: Any])
+        let delta = try #require(scoped["coverageDelta"] as? [String: Any])
+        let project = try #require(delta["project"] as? [String: Any])
+        let deltaBase = try #require(project["base"] as? [String: Any])
+        let deltaHead = try #require(project["head"] as? [String: Any])
+        #expect(wholeProject["executable"] as? Int == 0)
+        #expect(deltaBase["executable"] as? Int == 0)
+        #expect(deltaHead["executable"] as? Int == 0)
+        #expect(try String(contentsOf: repository.appending(path: "scoped.md"), encoding: .utf8).contains("**Project:** N/A (0/0) → N/A (0/0) (N/A)"))
     }
 
     @Test func orderedPathRulesUseLastMatchingRuleAndGlobComponents() throws {
@@ -175,6 +205,114 @@ import Testing
         #expect(try PathSelection(rules: [PathRule(pattern: "**/*.swift", action: .exclude)]).includes(RepositoryPath("App.swift")) == false)
         #expect(try PathSelection(rules: [PathRule(pattern: "file?.swift", action: .exclude)]).includes(RepositoryPath("file😀.swift")) == false)
         #expect(try PathSelection(rules: [PathRule(pattern: "notes [v1]#.swift", action: .exclude)]).includes(RepositoryPath("notes [v1]#.swift")) == false)
+    }
+
+    @Test func versionTwoBarePathsMatchDirectoryTreesWithoutChangingVersionOnePatterns() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        let configuration = repository.appending(path: ".whatcoverage.toml")
+
+        try Data("schema_version = 1\n[[paths]]\npattern = \"Tests\"\naction = \"exclude\"\n".utf8).write(to: configuration)
+        let versionOne = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        #expect(versionOne.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
+
+        try Data("schema_version = 2\n[[paths]]\npattern = \"Tests\"\naction = \"exclude\"\n".utf8).write(to: configuration)
+        let bare = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        #expect(!bare.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
+
+        for pattern in ["Tests/**", "Tests/**/*"] {
+            try Data("schema_version = 2\n[[paths]]\npattern = \"\(pattern)\"\naction = \"exclude\"\n".utf8).write(to: configuration)
+            let globbed = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+            #expect(!globbed.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
+        }
+    }
+
+    @Test func importsContinuedSonarPropertiesBeforeExplicitOverrides() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        try Data("""
+        sonar.sources=RedzoneApps,\
+          SharedLibraries
+        sonar.tests=Tests,SharedLibraries/Tests
+        sonar.exclusions=SharedLibraries/Package.swift
+        sonar.coverage.exclusions=**/Generated/**,\
+          **/*ViewController.swift
+        sonar.projectKey=ignored
+        """.utf8).write(to: repository.appending(path: "sonar-project.properties"))
+        try Data("""
+        schema_version = 2
+        [path_scope]
+        changed_lines = true
+        whole_project = true
+        coverage_delta = true
+        [sonar]
+        properties_file = "sonar-project.properties"
+        use_sources_as_allowlist = true
+        use_exclusions = true
+        use_coverage_exclusions = true
+        use_test_paths_as_exclusions = true
+        [[paths]]
+        pattern = "RedzoneApps/Generated/Important.swift"
+        action = "include"
+        """.utf8).write(to: repository.appending(path: ".whatcoverage.toml"))
+
+        let configuration = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+
+        #expect(configuration.pathScope.changedLines)
+        #expect(configuration.pathScope.wholeProject)
+        #expect(configuration.pathScope.coverageDelta)
+        #expect(configuration.pathSelection.includes(try RepositoryPath("RedzoneApps/App.swift")))
+        #expect(configuration.pathSelection.includes(try RepositoryPath("SharedLibraries/Core/App.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("Other/App.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("SharedLibraries/Tests/CoreTests.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("SharedLibraries/Package.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("RedzoneApps/Feature/Generated/API.swift")))
+        #expect(!configuration.pathSelection.includes(try RepositoryPath("RedzoneApps/HomeViewController.swift")))
+        #expect(configuration.pathSelection.includes(try RepositoryPath("RedzoneApps/Generated/Important.swift")))
+    }
+
+    @Test func sonarImportReportsMissingFilesAndUnsupportedPatterns() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        let configuration = repository.appending(path: ".whatcoverage.toml")
+        try Data("schema_version = 2\n[sonar]\nproperties_file = \"missing.properties\"\nuse_coverage_exclusions = true\n".utf8).write(to: configuration)
+        #expect(throws: WhatCoverageError.self) {
+            try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        }
+
+        try Data("sonar.coverage.exclusions=**/*.{swift,m}\n".utf8).write(to: repository.appending(path: "sonar-project.properties"))
+        try Data("schema_version = 2\n[sonar]\nproperties_file = \"sonar-project.properties\"\nuse_coverage_exclusions = true\n".utf8).write(to: configuration)
+        #expect(throws: WhatCoverageError.self) {
+            try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        }
+
+        try Data("sonar\\.coverage.exclusions=Generated/**\n".utf8).write(to: repository.appending(path: "sonar-project.properties"))
+        #expect(throws: WhatCoverageError.self) {
+            try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        }
+
+        try Data(("# This comment does not continue " + "\\" + "\nsonar.coverage.exclusions=Generated/**\n").utf8)
+            .write(to: repository.appending(path: "sonar-project.properties"))
+        let commentConfiguration = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+        #expect(!commentConfiguration.pathSelection.includes(try RepositoryPath("Generated/API.swift")))
+    }
+
+    @Test func rejectsEmptyOrDuplicateConfigurationTables() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        let configuration = repository.appending(path: ".whatcoverage.toml")
+        for text in [
+            "schema_version = 1\n[sonar]\n",
+            "schema_version = 2\n[sonar]\n",
+            "schema_version = 2\n[path_scope]\n[path_scope]\n",
+            "schema_version = 2\n[sonar]\nproperties_file = \"sonar-project.properties\"\n[sonar]\n",
+        ] {
+            try Data(text.utf8).write(to: configuration)
+            #expect(throws: WhatCoverageError.self) {
+                try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
+            }
+        }
     }
 
     @Test func rejectsUnsafeAndMalformedPathPatterns() {
@@ -242,7 +380,8 @@ import Testing
         try git(["commit", "-am", "head"], at: repository)
         let artifact = repository.appending(path: "coverage.json")
         try Data(#"{"type":"llvm.coverage.json.export","version":"2.0.0","data":[{"files":[{"filename":"/captured/Sources/Covered.swift","segments":[[2,1,1,true,true,false],[3,1,0,false,true,false]]},{"filename":"/captured/Generated/Uncovered.swift","segments":[[2,1,0,true,true,false],[3,1,0,false,true,false]]}]}]}"#.utf8).write(to: artifact)
-        let status = try WhatCoverageWorkflow().run(WhatCoverageConfiguration(input: artifact.path, format: .llvm, base: base, comparison: .direct, capturedSourceRoot: "/captured", jsonOutput: "report.json", minimum: try Percentage(100), pathSelection: try PathSelection(rules: [PathRule(pattern: "Generated/**", action: .exclude)])), repository: repository)
+        let selection = try PathSelection(rules: [PathRule(pattern: "Generated/**", action: .exclude)])
+        let status = try WhatCoverageWorkflow().run(WhatCoverageConfiguration(input: artifact.path, format: .llvm, base: base, comparison: .direct, capturedSourceRoot: "/captured", jsonOutput: "report.json", minimum: try Percentage(100), pathSelection: selection), repository: repository)
         #expect(status == .success)
         let json = try String(contentsOf: repository.appending(path: "report.json"), encoding: .utf8)
         #expect(json.contains("Sources/Covered.swift"))
@@ -252,9 +391,24 @@ import Testing
         #expect(wholeProject["executable"] as? Int == 2)
         #expect(wholeProject["covered"] as? Int == 1)
 
-        let emptyStatus = try WhatCoverageWorkflow().run(WhatCoverageConfiguration(input: artifact.path, format: .llvm, base: base, comparison: .direct, capturedSourceRoot: "/captured", jsonOutput: "empty.json", minimum: try Percentage(100), pathSelection: try PathSelection(rules: [PathRule(pattern: "**", action: .exclude)])), repository: repository)
+        let scopedStatus = try WhatCoverageWorkflow().run(WhatCoverageConfiguration(input: artifact.path, format: .llvm, base: base, comparison: .direct, capturedSourceRoot: "/captured", markdownOutput: "scoped.md", jsonOutput: "scoped.json", minimum: try Percentage(100), pathSelection: selection, pathScope: PathScope(wholeProject: true)), repository: repository)
+        #expect(scopedStatus == .success)
+        let scopedData = try Data(contentsOf: repository.appending(path: "scoped.json"))
+        let scopedObject = try #require(try JSONSerialization.jsonObject(with: scopedData) as? [String: Any])
+        let scopedWholeProject = try #require(scopedObject["wholeProjectCoverage"] as? [String: Any])
+        #expect(scopedWholeProject["executable"] as? Int == 1)
+        #expect(scopedWholeProject["covered"] as? Int == 1)
+        #expect(try String(contentsOf: repository.appending(path: "scoped.md"), encoding: .utf8).contains("**Whole-project coverage:** 100.00% (1/1)"))
+        let validated = try PRCoverageReportValidator().validate(scopedData, expectedHead: try git(["rev-parse", "HEAD"], at: repository))
+        #expect(try PRCoverageCommentRenderer().render(validated).contains("**Whole-project coverage:** 100.00% (1/1 executable lines)"))
+
+        let emptyStatus = try WhatCoverageWorkflow().run(WhatCoverageConfiguration(input: artifact.path, format: .llvm, base: base, comparison: .direct, capturedSourceRoot: "/captured", markdownOutput: "empty.md", jsonOutput: "empty.json", minimum: try Percentage(100), pathSelection: try PathSelection(rules: [PathRule(pattern: "**", action: .exclude)]), pathScope: PathScope(wholeProject: true)), repository: repository)
         #expect(emptyStatus == .success)
-        #expect(try String(contentsOf: repository.appending(path: "empty.json"), encoding: .utf8).contains(#""status" : "notApplicable""#))
+        let emptyJSON = try String(contentsOf: repository.appending(path: "empty.json"), encoding: .utf8)
+        #expect(emptyJSON.contains(#""status" : "notApplicable""#))
+        #expect(emptyJSON.contains(#""executable" : 0"#))
+        #expect(!emptyJSON.contains(#""percentage""#))
+        #expect(try String(contentsOf: repository.appending(path: "empty.md"), encoding: .utf8).contains("**Whole-project coverage:** N/A (0/0)"))
     }
 
     private func makeRepository() throws -> URL {

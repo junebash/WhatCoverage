@@ -94,6 +94,7 @@ jobs:
               cd /tmp
               tar -xzf /packages/what-coverage-linux-x86_64.tar.gz
               ./what-coverage --help >/dev/null
+              ./what-coverage-pr-comment --help >/dev/null
             '
 
   release:
