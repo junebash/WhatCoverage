@@ -25,14 +25,81 @@ platform-neutral and also run in the project's Linux development orb.
 
 ## Install a release binary
 
-Each GitHub Release includes native `macos-arm64`, `macos-x86_64`, and
-`linux-x86_64` archives plus `SHA256SUMS`. Starting with v0.9.0, every archive
-contains both `what-coverage` and `what-coverage-pr-comment`. Pin the version you
-choose; do not pipe an unpinned network response into a shell. For example,
-install v0.9.0 on Linux x86_64:
+Each installation method below installs both `what-coverage` and
+`what-coverage-pr-comment`. Releases support macOS arm64 and x86_64 plus Linux
+x86_64.
+
+### mise with aqua (recommended for CI)
+
+WhatCoverage publishes a small first-party aqua registry. Pin both that registry
+definition and the tool version in `mise.toml`; mise does not require a separate
+aqua installation:
+
+```toml
+[settings]
+aqua.registries = [
+  "https://raw.githubusercontent.com/junebash/WhatCoverage/v0.10.0/aqua/registry.yaml",
+]
+
+[tools]
+"aqua:junebash/WhatCoverage" = "0.10.0"
+```
+
+Then install the pinned tools and verify both entry points:
 
 ```sh
-version=0.9.0
+mise install
+what-coverage --help
+what-coverage-pr-comment --help
+```
+
+Direct aqua users can use the same package and release:
+
+```yaml
+registries:
+  - name: whatcoverage
+    type: github_content
+    repo_owner: junebash
+    repo_name: WhatCoverage
+    ref: v0.10.0
+    path: aqua/registry.yaml
+packages:
+  - name: junebash/WhatCoverage@v0.10.0
+    registry: whatcoverage
+```
+
+The registry reference is an immutable WhatCoverage Git tag. Its definition
+maps aqua's Linux/macOS architectures to the release assets, exposes both
+executables, and verifies each archive with that release's `SHA256SUMS`.
+Consumers do not need to copy platform digests into their own repositories. The
+registry definition and tool version may be pinned independently when a future
+tool release does not change the package layout.
+
+### Tagged installer (no package manager)
+
+The checked-in installer is the fallback when aqua or mise is unavailable. Pin
+both the installer URL and `--version` to the same Git tag; do not pipe an
+unpinned network response into a shell:
+
+```sh
+version=0.10.0
+curl -fsSLO "https://raw.githubusercontent.com/junebash/WhatCoverage/v${version}/scripts/install.sh"
+bash install.sh --version "$version" --prefix ~/.local
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The installer downloads the matching release archive and `SHA256SUMS`, verifies
+the archive, and installs both executables into the selected prefix's `bin`
+directory.
+
+### Manual release download
+
+Each GitHub Release includes native `macos-arm64`, `macos-x86_64`, and
+`linux-x86_64` archives plus `SHA256SUMS`. Starting with v0.9.0, every archive
+contains both executables. For example, install v0.10.0 on Linux x86_64:
+
+```sh
+version=0.10.0
 archive="what-coverage-v${version}-linux-x86_64.tar.gz"
 base="https://github.com/junebash/WhatCoverage/releases/download/v${version}"
 curl -fLO "$base/$archive"
@@ -45,15 +112,8 @@ install -m 755 what-coverage-pr-comment ~/.local/bin/what-coverage-pr-comment
 
 On macOS, substitute `macos-arm64` or `macos-x86_64` in the archive name and
 verify with `shasum -a 256 -c` after extracting the matching line from
-`SHA256SUMS`. The checked-in installer offers the same pinned, checksum-verified
-flow:
-
-```sh
-curl -fsSLO https://raw.githubusercontent.com/junebash/WhatCoverage/v0.9.0/scripts/install.sh
-bash install.sh --version 0.9.0 --prefix ~/.local
-```
-
-Add `~/.local/bin` to `PATH` if needed, then confirm the installed archive:
+`SHA256SUMS`. Add `~/.local/bin` to `PATH` if needed, then confirm the installed
+archive:
 
 ```sh
 what-coverage --help
