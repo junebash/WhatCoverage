@@ -60,10 +60,10 @@ output formatting.
 
 The command-line interface will use Apple's `swift-argument-parser` package.
 Its declarative validation, generated help, and typed option parsing belong at
-the executable boundary; parsed values will be passed to the existing library
+the executable boundary; parsed values will be passed to the existing internal
 modules for coverage reading, Git discovery, calculation, and rendering. The
 dependency is deferred until the command-line product phase and is not part of
-the current library implementation slice.
+the current internal implementation slice.
 
 ### D-010: Reject Xcode result bundles with multiple coverage archives
 
@@ -106,6 +106,69 @@ linked; it still dynamically uses glibc and is therefore supported on glibc
 is not published because standard hosted runners do not provide a reliable
 native arm64 Swift build without a paid larger runner. Every archive is
 smoke-tested before publication and covered by a release-level SHA-256 manifest.
+
+### D-014: Keep repository policy in the existing versioned configuration
+
+Version 1 `.whatcoverage.toml` accepts an optional `minimum` alongside path
+selection. The CLI loads both at the repository boundary, with `--minimum`
+taking precedence, and passes the selected typed percentage to `DiffCoverage`.
+This makes the PR requirement reviewable with the repository without duplicating
+threshold evaluation outside the functional core. Missing configuration means
+no threshold, while invalid configured values are invocation errors.
+
+### D-015: Model whole-project delta as an optional independent comparison
+
+`--input` remains the head artifact. Supplying `--base-input` reads a second
+artifact through the same normalized boundary and adds project, target, and file
+base/head counts, percentages, and percentage-point changes to both reports.
+The union of canonical files measurable in either artifact is compared; a file
+absent from one artifact has zero counts on that side. A percentage and therefore
+a change are not applicable when their denominator is zero. Delta ignores Git
+changed lines, configured path selection, and the changed-line minimum, and it
+has no policy or exit status.
+
+LLVM export and line-level Xcode archive JSON do not share a portable build-target
+identifier. Target granularity is therefore a documented source-layout grouping:
+`Sources/<name>` and `Tests/<name>` use `<name>`, other nested paths use the first
+component, and root files use `(root)`. The optional `coverageDelta` JSON member
+is an additive version-1 extension under D-011.
+
+### D-016: Derive current whole-project coverage from normalized head coverage
+
+Every CLI report aggregates current executable and covered counts across all
+canonical repository-relative files in the normalized `--input` value. It does
+not read the artifact again, require `--base-input`, use the Git diff, apply
+changed-file path selection, or affect threshold policy and exit status. A zero
+executable-line artifact has no percentage and renders as not applicable.
+
+Version 1 JSON carries this as the additive optional `wholeProjectCoverage`
+member so existing consumers and trusted comment renderers can continue to
+accept older reports. Its name and PR-comment presentation describe only the
+current head total; percentage-point change remains exclusive to
+`coverageDelta` when a base artifact is explicitly supplied.
+
+### D-017: Add opt-in path scope and Sonar import in configuration version 2
+
+Version 1 configuration and its exact bare-pattern semantics remain unchanged.
+Version 2 can apply one ordered selection independently to changed lines,
+current whole-project totals, and both delta artifacts; whole-project and delta
+default to unfiltered. A zero-file selection retains the existing not-applicable
+model.
+
+Version 2 may import `sonar.sources`, `sonar.exclusions`,
+`sonar.coverage.exclusions`, and `sonar.tests` from a relative Java properties
+file. Imported rules precede explicit `[[paths]]` overrides. Bare non-glob paths
+mean directory trees in version 2 and imports. Unsupported Sonar glob features
+fail explicitly rather than receiving approximate semantics.
+
+### D-018: Ship one rich-comment executable with strict and trusted-local modes
+
+Release archives contain both executables. The existing Actions mode preserves
+its single-file artifact constraint, bounded pre-fetched source JSON, and base64
+stdout contract. Trusted local CI can instead validate a normally named report,
+load bounded UTF-8 source beneath a checkout root, and write Markdown directly.
+This shares the validator, renderer, and limits without granting untrusted pull
+request code a write token or changing flat report output.
 
 ## Pending
 

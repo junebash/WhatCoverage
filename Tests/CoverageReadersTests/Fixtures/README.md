@@ -3,6 +3,9 @@
 `llvm-export.json` is a synthetic LLVM 2.x export covering region transitions,
 captured-root and repository-relative paths, and an external path.
 
+`llvm-export-base.json` is a reduced synthetic base artifact paired with
+`llvm-export.json` to exercise base-versus-head whole-project comparison.
+
 `llvm-export-swift-6.2.1.json` was generated from a temporary library created by
 `swift package init`, tested with `swift test --enable-code-coverage`, and read
 from the path printed by `swift test --show-codecov-path` using Swift 6.2.1. It

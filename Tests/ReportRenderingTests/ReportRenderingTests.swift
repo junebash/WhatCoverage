@@ -1,3 +1,4 @@
+import CoverageDelta
 import CoverageModel
 import DiffCoverage
 import Foundation
@@ -64,6 +65,32 @@ import Testing
         #expect(html.contains("<td class=\"uncovered\">4</td>"))
     }
 
+    @Test func coverageDeltaMatchesJSONAndMarkdownGoldens() throws {
+        let document = try deltaDocument()
+
+        try expectGolden(JSONReportRenderer().render(document), named: "delta-report", extension: "json")
+        try expectGolden(Data(MarkdownReportRenderer().render(document).utf8), named: "delta-report", extension: "md")
+    }
+
+    @Test func versionOneSchemaPublishesWholeProjectCoverageAndDeltaAsOptionalAdditiveMembers() throws {
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let schemaData = try Data(contentsOf: repository.appending(path: "Documentation/whatcoverage-report-v1.schema.json"))
+        let schema = try #require(try JSONSerialization.jsonObject(with: schemaData) as? [String: Any])
+        let required = try #require(schema["required"] as? [String])
+        let properties = try #require(schema["properties"] as? [String: Any])
+        let delta = try #require(properties["coverageDelta"] as? [String: Any])
+        let deltaRequired = try #require(delta["required"] as? [String])
+
+        #expect(!required.contains("coverageDelta"))
+        #expect(!required.contains("wholeProjectCoverage"))
+        #expect(properties["wholeProjectCoverage"] != nil)
+        #expect(Set(deltaRequired) == Set(["baseInput", "basePathMapping", "project", "targets", "files"]))
+        #expect(JSONReportRenderer.schemaVersion == 1)
+    }
+
     private func measurableDocument(minimum: Double) throws -> CoverageReportDocument {
         let a = try RepositoryPath("Sources/A.swift")
         let b = try RepositoryPath("Sources/B.swift")
@@ -84,7 +111,8 @@ import Testing
                 coverage: coverage,
                 changes: changes,
                 minimum: try Percentage(minimum)
-            )
+            ),
+            wholeProjectCoverage: coverage.wholeProjectCounts
         )
     }
 
@@ -105,6 +133,41 @@ import Testing
                 coverage: try NormalizedCoverage(files: []),
                 changes: try ChangedLines(files: []),
                 minimum: try Percentage(75)
+            ),
+            wholeProjectCoverage: try NormalizedCoverage(files: []).wholeProjectCounts
+        )
+    }
+
+    private func deltaDocument() throws -> CoverageReportDocument {
+        let base = try NormalizedCoverage(files: [
+            FileCoverage(path: RepositoryPath("Sources/App/A.swift"), lines: [
+                LineCoverage(line: 1, executionCount: 1),
+                LineCoverage(line: 2, executionCount: 0),
+            ]),
+        ])
+        let head = try NormalizedCoverage(files: [
+            FileCoverage(path: RepositoryPath("Sources/App/A.swift"), lines: [
+                LineCoverage(line: 1, executionCount: 1),
+                LineCoverage(line: 2, executionCount: 1),
+            ]),
+            FileCoverage(path: RepositoryPath("Tests/AppTests/A.swift"), lines: [
+                LineCoverage(line: 1, executionCount: 0),
+            ]),
+        ])
+        return CoverageReportDocument(
+            metadata: metadata(),
+            result: DiffCoverageCalculator.calculate(
+                coverage: head,
+                changes: try ChangedLines(files: [])
+            ),
+            wholeProjectCoverage: head.wholeProjectCounts,
+            coverageDelta: CoverageDeltaDocument(
+                baseInput: CoverageInputMetadata(kind: .llvm, source: "Artifacts/base.json"),
+                basePathMapping: PathMappingMetadata(
+                    repositoryRoot: "/workspace/repo",
+                    capturedSourceRoot: "/build/base"
+                ),
+                result: CoverageDeltaCalculator.calculate(base: base, head: head)
             )
         )
     }

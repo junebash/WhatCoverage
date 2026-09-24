@@ -9,13 +9,8 @@ let package = Package(
         .macOS(.v13),
     ],
     products: [
-        .library(name: "CoverageModel", targets: ["CoverageModel"]),
-        .library(name: "CoverageReaders", targets: ["CoverageReaders"]),
-        .library(name: "DiffCoverage", targets: ["DiffCoverage"]),
-        .library(name: "GitDiff", targets: ["GitDiff"]),
-        .library(name: "ProcessSupport", targets: ["ProcessSupport"]),
-        .library(name: "ReportRendering", targets: ["ReportRendering"]),
         .executable(name: "what-coverage", targets: ["WhatCoverage"]),
+        .executable(name: "what-coverage-pr-comment", targets: ["WhatCoveragePRComment"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
@@ -23,6 +18,7 @@ let package = Package(
     targets: [
         .target(name: "CoverageModel"),
         .target(name: "CoverageReaders", dependencies: ["CoverageModel", "ProcessSupport"]),
+        .target(name: "CoverageDelta", dependencies: ["CoverageModel"]),
         .target(name: "DiffCoverage", dependencies: ["CoverageModel"]),
         .target(name: "GitDiff", dependencies: ["CoverageModel", "ProcessSupport"]),
         .target(name: "ProcessSupport"),
@@ -31,29 +27,36 @@ let package = Package(
             name: "WhatCoverage",
             dependencies: [
                 "CoverageReaders",
+                "CoverageDelta",
                 "DiffCoverage",
                 "GitDiff",
                 "ReportRendering",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
+        .executableTarget(
+            name: "WhatCoveragePRComment",
+            dependencies: ["ReportRendering"]
+        ),
         .testTarget(name: "CoverageModelTests", dependencies: ["CoverageModel"]),
+        .testTarget(name: "CoverageDeltaTests", dependencies: ["CoverageDelta"]),
         .testTarget(
             name: "CoverageReadersTests",
-            dependencies: ["CoverageReaders", "DiffCoverage", "GitDiff", "ProcessSupport"],
+            dependencies: ["CoverageReaders", "CoverageDelta", "DiffCoverage", "GitDiff", "ProcessSupport"],
             resources: [.copy("Fixtures")]
         ),
         .testTarget(name: "DiffCoverageTests", dependencies: ["DiffCoverage"]),
         .testTarget(name: "GitDiffTests", dependencies: ["CoverageModel", "GitDiff", "ProcessSupport"]),
         .testTarget(
             name: "ReportRenderingTests",
-            dependencies: ["CoverageModel", "DiffCoverage", "ReportRendering"],
+            dependencies: ["CoverageModel", "CoverageDelta", "DiffCoverage", "ReportRendering"],
             resources: [.copy("Fixtures")]
         ),
         .testTarget(
             name: "WhatCoverageTests",
             dependencies: [
                 "WhatCoverage",
+                "ReportRendering",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),

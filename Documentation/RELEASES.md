@@ -1,5 +1,23 @@
 # Releases
 
+## Next minor release
+
+The v0.10.0 release adds a first-party aqua registry definition that mise and
+aqua consumers can pin by WhatCoverage Git tag. It maps the existing release
+archives to all supported platforms, verifies them through `SHA256SUMS`, and
+installs both released executables without consumer-maintained scripts or
+digest tables.
+
+The v0.9.0 archives add `what-coverage-pr-comment` beside `what-coverage` on all
+three platforms. The installer installs both, and package smoke tests validate
+both help entry points plus a local rich-comment render. This is additive; flat
+Markdown and the existing trusted Actions rendering protocol remain unchanged.
+
+Configuration schema version 2 is also additive. Existing schema version 1
+repositories keep unfiltered whole-project and delta values. Version 2 users who
+set `path_scope.whole_project` or `path_scope.coverage_delta` to `true` will see
+those numbers change because excluded files are intentionally omitted.
+
 WhatCoverage uses [Semantic Versioning](https://semver.org/) and releases from
 the `main` branch through the [Release workflow](../.github/workflows/release.yml).
 The repository has no version source file: Git tags and GitHub Releases are the
@@ -74,6 +92,33 @@ gh release view v0.1.0 || gh release create v0.1.0 --verify-tag --generate-notes
 gh release upload v0.1.0 what-coverage-v0.1.0-*.tar.gz SHA256SUMS --clobber
 gh release edit v0.1.0 --draft=false
 ```
+
+## Release checklist
+
+Before publishing:
+
+1. If release asset names, supported platforms, or packaged executables changed,
+   update `aqua/registry.yaml` in the release commit and test it locally with
+   aqua. The version-independent package template normally covers new releases
+   without a registry change.
+2. Confirm the package smoke tests still exercise both executables on all three
+   release platforms.
+
+After each GitHub Release is published:
+
+1. Confirm all three archives and `SHA256SUMS` are attached and that each
+   archive still contains the expected executables.
+2. Configure aqua from the tagged `aqua/registry.yaml`, install the new version,
+   and smoke-test both commands on at least one supported OS:
+
+   ```sh
+   aqua exec -- what-coverage --help
+   aqua exec -- what-coverage-pr-comment --help
+   ```
+3. Confirm the README's pinned mise and aqua examples name an existing registry
+   tag and tool release. Update the examples when the registry definition itself
+   changes; they may keep an older registry tag when only the tool version
+   changes.
 
 For a local dry run, use `npm ci && npx semantic-release --dry-run`. It checks
 the next version and generated notes without creating a tag or release.

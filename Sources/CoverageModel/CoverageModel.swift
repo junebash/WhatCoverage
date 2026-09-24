@@ -7,6 +7,7 @@ public enum CoverageModelError: Error, Equatable, Sendable {
     case duplicateLine(path: RepositoryPath, line: Int)
     case duplicateFile(RepositoryPath)
     case invalidPercentage(Double)
+    case invalidPercentagePointChange(Double)
 }
 
 public struct RepositoryPath: Hashable, Comparable, Codable, Sendable {
@@ -75,6 +76,15 @@ public struct NormalizedCoverage: Equatable, Sendable {
             }
         }
         self.files = indexed
+    }
+
+    public var wholeProjectCounts: CoverageCounts {
+        CoverageCounts(
+            executable: files.values.reduce(0) { $0 + $1.lines.count },
+            covered: files.values.reduce(0) { total, file in
+                total + file.lines.values.count(where: { $0 > 0 })
+            }
+        )
     }
 }
 
@@ -145,6 +155,80 @@ public struct CoverageCounts: Equatable, Sendable {
     }
 }
 
+public struct PercentagePointChange: Equatable, Codable, Sendable {
+    public let value: Double
+
+    public init(_ value: Double) throws {
+        guard value.isFinite, (-100...100).contains(value) else {
+            throw CoverageModelError.invalidPercentagePointChange(value)
+        }
+        self.value = value
+    }
+
+    public init(from decoder: Decoder) throws {
+        try self.init(decoder.singleValueContainer().decode(Double.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
+}
+
+public struct CoverageDeltaCounts: Equatable, Sendable {
+    public let base: CoverageCounts
+    public let head: CoverageCounts
+    public let percentagePointChange: PercentagePointChange?
+
+    package init(base: CoverageCounts, head: CoverageCounts) {
+        self.base = base
+        self.head = head
+        if let basePercentage = base.percentage, let headPercentage = head.percentage {
+            percentagePointChange = try? PercentagePointChange(headPercentage.value - basePercentage.value)
+        } else {
+            percentagePointChange = nil
+        }
+    }
+}
+
+public struct FileCoverageDelta: Equatable, Sendable {
+    public let path: RepositoryPath
+    public let target: String
+    public let coverage: CoverageDeltaCounts
+
+    package init(path: RepositoryPath, target: String, coverage: CoverageDeltaCounts) {
+        self.path = path
+        self.target = target
+        self.coverage = coverage
+    }
+}
+
+public struct TargetCoverageDelta: Equatable, Sendable {
+    public let name: String
+    public let coverage: CoverageDeltaCounts
+
+    package init(name: String, coverage: CoverageDeltaCounts) {
+        self.name = name
+        self.coverage = coverage
+    }
+}
+
+public struct WholeProjectCoverageDelta: Equatable, Sendable {
+    public let project: CoverageDeltaCounts
+    public let targets: [TargetCoverageDelta]
+    public let files: [FileCoverageDelta]
+
+    package init(
+        project: CoverageDeltaCounts,
+        targets: [TargetCoverageDelta],
+        files: [FileCoverageDelta]
+    ) {
+        self.project = project
+        self.targets = targets
+        self.files = files
+    }
+}
+
 public struct FileCoverageResult: Equatable, Sendable {
     public let path: RepositoryPath
     public let coveredLines: [Int]
@@ -165,6 +249,28 @@ public enum PolicyOutcome: Equatable, Sendable {
     case notApplicable(threshold: Percentage?)
     case passed(threshold: Percentage?)
     case failed(threshold: Percentage, actual: Percentage)
+
+    public var statusLabel: String {
+        switch self {
+        case .notApplicable:
+            "Not applicable"
+        case .passed:
+            "Passed"
+        case .failed:
+            "Failed"
+        }
+    }
+
+    public var statusSummary: String {
+        switch self {
+        case .notApplicable:
+            "No changed executable lines"
+        case .passed:
+            "Coverage meets the configured minimum"
+        case .failed:
+            "Coverage is below the configured minimum"
+        }
+    }
 }
 
 public struct DiffCoverageReport: Equatable, Sendable {
@@ -250,9 +356,34 @@ public struct ReportMetadata: Equatable, Sendable {
 public struct CoverageReportDocument: Equatable, Sendable {
     public let metadata: ReportMetadata
     public let result: DiffCoverageReport
+    public let wholeProjectCoverage: CoverageCounts?
+    public let coverageDelta: CoverageDeltaDocument?
 
-    public init(metadata: ReportMetadata, result: DiffCoverageReport) {
+    public init(
+        metadata: ReportMetadata,
+        result: DiffCoverageReport,
+        wholeProjectCoverage: CoverageCounts? = nil,
+        coverageDelta: CoverageDeltaDocument? = nil
+    ) {
         self.metadata = metadata
+        self.result = result
+        self.wholeProjectCoverage = wholeProjectCoverage
+        self.coverageDelta = coverageDelta
+    }
+}
+
+public struct CoverageDeltaDocument: Equatable, Sendable {
+    public let baseInput: CoverageInputMetadata
+    public let basePathMapping: PathMappingMetadata
+    public let result: WholeProjectCoverageDelta
+
+    public init(
+        baseInput: CoverageInputMetadata,
+        basePathMapping: PathMappingMetadata,
+        result: WholeProjectCoverageDelta
+    ) {
+        self.baseInput = baseInput
+        self.basePathMapping = basePathMapping
         self.result = result
     }
 }

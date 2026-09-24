@@ -49,6 +49,7 @@ jobs:
             --format llvm \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
+            --config .whatcoverage.toml \
             --markdown-output what-coverage-report.md \
             --json-output what-coverage-report.json
       - name: Upload coverage report

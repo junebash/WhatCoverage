@@ -55,6 +55,35 @@ design decisions.
 - **CALC-006:** A configurable minimum percentage can fail the policy without
   hiding the calculated report.
 
+## Current whole-project coverage
+
+- **TOTAL-001:** Every report includes executable and covered line counts from
+  canonical repository-relative files in the normalized head artifact,
+  independently of the Git diff. Configuration may select whether path rules
+  filter this total; compatibility defaults leave it unfiltered.
+- **TOTAL-002:** Current whole-project coverage is informational and does not
+  affect changed-line threshold policy or process exit status.
+- **TOTAL-003:** When the normalized head artifact has no executable lines,
+  current whole-project coverage is not applicable; reports omit its percentage
+  rather than substituting zero or one hundred percent.
+
+## Whole-project coverage delta
+
+- **DELTA-001:** When given base and head coverage artifacts, compare their
+  normalized whole-project executable and covered line counts.
+- **DELTA-002:** Report base percentage, head percentage, and percentage-point
+  change at project, target, and file granularity independently of the Git line
+  diff and changed-line threshold policy. Configuration may apply the same path
+  selection to both artifacts; compatibility defaults leave delta unfiltered.
+- **DELTA-003:** Compare the union of canonical repository-relative files with
+  executable lines in either artifact. An absent file contributes zero
+  executable and covered lines on that side.
+- **DELTA-004:** Omit percentage-point change when either side has no executable
+  lines; do not substitute zero or one hundred percent.
+- **DELTA-005:** Portable target groups derive from canonical source paths:
+  `Sources/<name>` and `Tests/<name>` use `<name>`, other nested paths use their
+  first component, and root files use `(root)`.
+
 ## Output
 
 - **OUT-001:** The tool can write a human-readable Markdown report.
@@ -67,7 +96,11 @@ design decisions.
 - **OUT-005:** Ordering is deterministic.
 - **OUT-006:** Reports distinguish a valid policy failure from an operational
   failure.
-- **OUT-007:** HTML reports render the calculated report document with escaped
+- **OUT-007:** When requested, both report formats include deterministic
+  whole-project delta and identify the base artifact and its path mapping.
+- **OUT-008:** Both report formats include current whole-project coverage from
+  the head artifact without requiring a base artifact or implying a delta.
+- **OUT-009:** HTML reports render the calculated report document with escaped
   metadata and per-file covered/uncovered changed-line numbers without reading
   source files or recalculating coverage.
 
@@ -80,7 +113,7 @@ design decisions.
 - **CLI-003:** Exit statuses distinguish success, threshold failure, invalid
   invocation, invalid coverage input, and Git failure.
 - **CLI-004:** Diagnostics are concise and actionable.
-- **CLI-005:** The command can emit both Markdown and JSON in one invocation.
+- **CLI-005:** The command can emit Markdown, JSON, and HTML in one invocation.
 - **CLI-006:** Input format is inferred from a recognized artifact type when
   unambiguous; an explicit format overrides inference.
 - **CLI-007:** Unknown or ambiguous input types require an explicit format and
@@ -88,9 +121,25 @@ design decisions.
 - **CLI-008:** The command discovers an optional `.whatcoverage.toml` only at the
   resolved compared repository root. `--config` selects one explicit file and
   `--no-config` disables automatic configuration loading.
-- **CLI-009:** Version 1 configuration path rules use deterministic, ordered
-  last-match-wins include/exclude selection over canonical repository-relative
-  paths. Invalid or unsafe configuration is an invocation error.
+- **CLI-009:** Version 1 configuration accepts an optional finite minimum from
+  0 through 100 and deterministic, ordered, last-match-wins path rules over
+  canonical repository-relative paths. Invalid or unsafe configuration is an
+  invocation error.
+- **CLI-010:** An explicit `--minimum` overrides the configured minimum;
+  `--no-config` disables both configured policy and path selection.
+- **CLI-011:** An optional base coverage input, independently inferred or
+  selected format, and captured source root enable whole-project delta.
+- **CLI-012:** Version 2 configuration can independently apply ordered path
+  selection to changed lines, current whole-project coverage, and coverage
+  delta while version 1 behavior remains unchanged.
+- **CLI-013:** Version 2 configuration can import selected comma-separated,
+  continued `sonar-project.properties` source, test, general exclusion, and
+  coverage-exclusion paths before explicit WhatCoverage overrides.
+- **CLI-014:** Version 2 bare directory tokens select their trees; version 1
+  retains exact-path semantics.
+- **CLI-015:** The released comment executable can validate any named report in
+  trusted local mode, load bounded source excerpts beneath a checkout root, and
+  write posting-ready UTF-8 Markdown without changing the strict artifact mode.
 
 ## Quality attributes
 
@@ -107,9 +156,5 @@ design decisions.
 
 ## Deferred requirements
 
-- **DELTA-001:** Compare normalized whole-project reports from base and head
-  artifacts.
-- **DELTA-002:** Report project, target, and file coverage changes independently
-  of the Git line diff.
 - **INT-001:** Provide optional source-hosting integrations without coupling them
-  to the calculation library.
+  to the core calculation.

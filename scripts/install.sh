@@ -68,4 +68,5 @@ fi
 mkdir -p "$prefix/bin"
 tar -C "$temporary_directory" -xzf "$temporary_directory/$archive"
 install -m 755 "$temporary_directory/what-coverage" "$prefix/bin/what-coverage"
-echo "Installed what-coverage v$version to $prefix/bin/what-coverage"
+install -m 755 "$temporary_directory/what-coverage-pr-comment" "$prefix/bin/what-coverage-pr-comment"
+echo "Installed WhatCoverage v$version executables to $prefix/bin"

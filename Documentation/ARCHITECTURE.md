@@ -2,21 +2,16 @@
 
 ## Shape
 
-WhatCoverage is a command-line executable over a small set of focused library
+WhatCoverage is a command-line executable over a small set of focused internal
 modules. The CLI coordinates dependencies; it does not contain coverage logic.
 
 ```text
-Xcode result bundle ─┐
-                     ├─> Coverage parser ─> normalized coverage ─┐
-LLVM coverage JSON ──┘                                           │
-                                                                 ├─> calculator
-Git revisions ─────────> Git diff provider ─> changed lines ─────┘       │
-                                                                          v
-                                                              report + policy
-                                                                          │
-                                                               ┌──────────┴───────┐
-                                                               v                  v
-                                                           Markdown              JSON
+head artifact ──> Coverage reader ──> normalized head ──┬─> DiffCoverage ─┐
+                                                       │                 │
+Git revisions ──> Git diff provider ──> changed lines ─┘                 ├─> report ─┬─> Markdown
+                                                                         │           ├─> JSON
+base artifact ──> Coverage reader ──> normalized base ─┬─> CoverageDelta ─┘           └─> HTML
+normalized head ───────────────────────────────────────┘
 ```
 
 ## Module boundaries
@@ -93,31 +88,58 @@ Intersects changed lines with executable coverage lines, aggregates file and
 total results, and evaluates an optional threshold. This is the functional core:
 its inputs and outputs are values and its tests require no processes or files.
 
+### CoverageDelta
+
+Compares two `NormalizedCoverage` values without Git input. It independently
+aggregates executable and covered lines from each artifact over the union of
+files, then reports base, head, and percentage-point change at project, target,
+and file levels. Portable target groups derive from canonical source paths
+because the supported LLVM and line-level Xcode artifacts do not expose one
+common build-target identity: `Sources/<name>` and `Tests/<name>` use `<name>`,
+other nested files use their first component, and repository-root files use
+`(root)`.
+
 ### ReportRendering
 
-Transforms one report model into versioned JSON or Markdown. Renderers do not
+Transforms one report model into versioned JSON, Markdown, or HTML. Renderers do not
 recalculate percentages or policy outcomes. This prevents output formats from
 disagreeing. `CoverageReportDocument` combines the calculated result with
 provider-independent revision, artifact, and path-mapping metadata before it
 crosses the rendering boundary. JSON version 1 is published as
 `Documentation/whatcoverage-report-v1.schema.json`; Markdown formats percentages
 to two decimal places for display while JSON preserves the model's full value.
+The report document also carries current whole-project counts aggregated once
+from the already-normalized head coverage. Schema v2 configuration may filter
+that value through the same path selection used for changed lines; compatibility
+defaults leave it unfiltered. It remains independent of policy. A zero
+denominator has no percentage and renders as not applicable.
+
+The same module owns the PR-comment boundary for a previously rendered JSON
+report. `PRCoverageReportValidator` treats workflow artifacts as untrusted,
+enforcing the version-1 contract plus strict path, line, aggregate, policy, and
+size limits before `PRCoverageCommentRenderer` creates bounded Markdown and
+escaped source excerpts. The `what-coverage-pr-comment` executable is a thin
+workflow adapter for selecting validated source paths and emitting the encoded
+comment body; it does not call GitHub APIs or recalculate coverage policy.
 
 ### WhatCoverage CLI
 
 Uses Apple's `swift-argument-parser` to validate arguments, infer or select a
 reader, coordinate Git and coverage input, write requested reports, print
 diagnostics, and map typed outcomes to exit statuses. Its workflow only composes
-the focused library modules: it contains no coverage calculation, rendering, or
-Git parsing logic. Argument errors occur before input parsing or Git work;
+the focused internal modules: it contains no coverage calculation, rendering,
+or Git parsing logic. Argument errors occur before input parsing or Git work;
 threshold failures occur only after every requested report has been written.
 
 The CLI resolves the Git top-level directory before loading `.whatcoverage.toml`.
-Its strict version-1 parser validates ordered path rules, then filters changed
-head-side files once before `DiffCoverageCalculator`. This single boundary keeps
+Its strict versioned parser validates an optional minimum and ordered path rules.
+Version 2 additionally owns path scope and selected Sonar-properties import,
+placing imported rules before explicit overrides. It filters each configured
+input once before its calculator. An
+explicit `--minimum` takes precedence over the file. This single boundary keeps
 Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
-artifacts consistent. Configuration deliberately does not set thresholds or
-other CLI options in version 1.
+artifacts consistent. Threshold evaluation remains in the pure calculator; the
+configuration layer only selects its input value.
 
 `HTMLReportRenderer` is another deterministic presentation of the same
 `CoverageReportDocument`; it neither accesses source files nor recalculates line
@@ -138,6 +160,10 @@ future integrations:
 - deterministic per-file results
 - optional threshold
 - policy outcome: passed, failed, or not applicable
+- optional current whole-project head counts and percentage
+- optional base coverage input and path mapping
+- optional project, target, and file base/head whole-project counts,
+  percentages, and percentage-point changes
 
 JSON consumers must ignore unknown object members. Additive optional members may
 preserve a version; changed meaning, removed or newly required members, changed
@@ -156,9 +182,18 @@ Errors are grouped by action the caller can take:
 A policy failure is a valid completed calculation, so requested reports are
 written before the process returns its threshold-failure status.
 
+The released `what-coverage-pr-comment` keeps strict artifact-layout and
+base64-output commands for the trusted GitHub workflow. Its separate local mode
+accepts a normal report path, resolves bounded validated source paths beneath a
+trusted checkout without following escaping symlinks, and writes UTF-8 Markdown.
+
 ## Extension: base-versus-head delta
 
-Future coverage delta consumes two values from the existing normalized coverage
-boundary and produces a separate comparison result. It must not be inferred from
-diff coverage. Keeping artifact readers independent from the calculator lets
-this feature reuse both readers without changing the CLI's initial core.
+Coverage delta consumes two values from the existing normalized coverage
+boundary and produces a separate comparison result. It is never inferred from
+diff coverage. `--input` remains the head artifact; optional `--base-input` and
+its independent format and captured-root options enable delta. The delta uses
+all normalized files by default; schema v2 may apply path selection symmetrically
+to base and head. It ignores threshold policy and cannot change the process exit
+status. Version 1 JSON includes it as the
+optional additive `coverageDelta` member.
