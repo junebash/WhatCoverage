@@ -309,7 +309,7 @@ public struct WhatCoverageCommand: ParsableCommand {
             throw ValidationError("Specify --markdown-output, --json-output, --html-output, or a combination.")
         }
         let outputs = [markdownOutput, jsonOutput, htmlOutput].compactMap { $0 }
-        guard Set(outputs).count == outputs.count else {
+        guard Set(outputs.map(Self.normalizedOutputPath)).count == outputs.count else {
             throw ValidationError("Markdown, JSON, and HTML output paths must be different.")
         }
         if let capturedSourceRoot, !capturedSourceRoot.hasPrefix("/") {
@@ -352,6 +352,15 @@ public struct WhatCoverageCommand: ParsableCommand {
         )
         let status = try WhatCoverageWorkflow().run(configuration, repository: repository)
         if status != .success { throw ExitCode(rawValue: status.rawValue) }
+    }
+
+    static func normalizedOutputPath(_ path: String) -> String {
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path).standardizedFileURL.path
+        }
+        return URL(fileURLWithPath: "/", isDirectory: true)
+            .appending(path: path)
+            .standardizedFileURL.path
     }
 
     public static func inferFormat(for input: String) throws -> CoverageFormat {

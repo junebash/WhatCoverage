@@ -11,6 +11,7 @@ import Testing
 
         try expectGolden(JSONReportRenderer().render(document), named: "failed-report", extension: "json")
         try expectGolden(Data(MarkdownReportRenderer().render(document).utf8), named: "failed-report", extension: "md")
+        try expectGolden(Data(HTMLReportRenderer().render(document).utf8), named: "failed-report", extension: "html")
     }
 
     @Test func passedPolicyIsRenderedWithoutChangingTheCalculatedResult() throws {
@@ -30,6 +31,7 @@ import Testing
 
         try expectGolden(JSONReportRenderer().render(document), named: "not-applicable-report", extension: "json")
         try expectGolden(Data(MarkdownReportRenderer().render(document).utf8), named: "not-applicable-report", extension: "md")
+        try expectGolden(Data(HTMLReportRenderer().render(document).utf8), named: "not-applicable-report", extension: "html")
     }
 
     @Test func markdownEscapesTableSeparatorsAndBackticks() throws {
@@ -53,14 +55,36 @@ import Testing
         let coverage = try NormalizedCoverage(files: [
             FileCoverage(path: path, lines: [try LineCoverage(line: 2, executionCount: 1), try LineCoverage(line: 4, executionCount: 0)]),
         ])
-        let document = CoverageReportDocument(metadata: metadata(), result: DiffCoverageCalculator.calculate(
-            coverage: coverage,
-            changes: try ChangedLines(files: [ChangedFile(path: path, addedLines: [2, 4])])
-        ))
+        let document = CoverageReportDocument(
+            metadata: ReportMetadata(
+                revision: RevisionMetadata(
+                    requestedBase: "origin/<main>&'\"",
+                    requestedHead: "HEAD",
+                    resolvedBase: "aaa<aaa",
+                    resolvedHead: "bbb>bbb",
+                    mode: .mergeBase
+                ),
+                coverageInput: CoverageInputMetadata(kind: .xcode, source: "Artifacts/Tests<'\"&>.xcresult"),
+                pathMapping: PathMappingMetadata(
+                    repositoryRoot: "/workspace/<repo>",
+                    capturedSourceRoot: "/build/repo&\"'"
+                )
+            ),
+            result: DiffCoverageCalculator.calculate(
+                coverage: coverage,
+                changes: try ChangedLines(files: [ChangedFile(path: path, addedLines: [2, 4])])
+            )
+        )
 
         let html = HTMLReportRenderer().render(document)
 
         #expect(html.contains("Sources/A&lt;&amp;&quot;&#39;.swift"))
+        #expect(html.contains("origin/&lt;main&gt;&amp;&#39;&quot;...HEAD"))
+        #expect(html.contains("aaa&lt;aaa"))
+        #expect(html.contains("bbb&gt;bbb"))
+        #expect(html.contains("Artifacts/Tests&lt;&#39;&quot;&amp;&gt;.xcresult"))
+        #expect(html.contains("/workspace/&lt;repo&gt;"))
+        #expect(html.contains("/build/repo&amp;&quot;&#39;"))
         #expect(html.contains("<td class=\"covered\">2</td>"))
         #expect(html.contains("<td class=\"uncovered\">4</td>"))
     }
@@ -70,6 +94,7 @@ import Testing
 
         try expectGolden(JSONReportRenderer().render(document), named: "delta-report", extension: "json")
         try expectGolden(Data(MarkdownReportRenderer().render(document).utf8), named: "delta-report", extension: "md")
+        try expectGolden(Data(HTMLReportRenderer().render(document).utf8), named: "delta-report", extension: "html")
     }
 
     @Test func versionOneSchemaPublishesWholeProjectCoverageAndDeltaAsOptionalAdditiveMembers() throws {

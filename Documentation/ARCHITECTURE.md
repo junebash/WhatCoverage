@@ -137,13 +137,14 @@ Version 2 additionally owns path scope and selected Sonar-properties import,
 placing imported rules before explicit overrides. It filters each configured
 input once before its calculator. An
 explicit `--minimum` takes precedence over the file. This single boundary keeps
-Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
-artifacts consistent. Threshold evaluation remains in the pure calculator; the
-configuration layer only selects its input value.
+Markdown, JSON, HTML, totals, threshold policy, exit status, and downstream PR
+comment artifacts consistent. Threshold evaluation remains in the pure calculator;
+the configuration layer only selects its input value.
 
 `HTMLReportRenderer` is another deterministic presentation of the same
-`CoverageReportDocument`; it neither accesses source files nor recalculates line
-coverage. This keeps the downloadable HTML report inside the renderer boundary.
+`CoverageReportDocument`, including whole-project coverage and delta when present;
+it neither accesses source files nor recalculates line coverage. This keeps the
+downloadable HTML report inside the renderer boundary.
 
 ## Report contract
 

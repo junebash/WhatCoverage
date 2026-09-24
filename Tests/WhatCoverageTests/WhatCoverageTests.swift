@@ -45,6 +45,21 @@ import Testing
                 "--input", "coverage.json", "--base", "HEAD", "--base-format", "llvm", "--json-output", "report.json",
             ])
         }
+        #expect(throws: Error.self) {
+            _ = try WhatCoverageCommand.parseAsRoot([
+                "--input", "coverage.json", "--base", "HEAD", "--json-output", "report.json", "--html-output", "./report.json",
+            ])
+        }
+        #expect(throws: Error.self) {
+            _ = try WhatCoverageCommand.parseAsRoot([
+                "--input", "coverage.json", "--base", "HEAD", "--markdown-output", "out/../report.md", "--json-output", "report.md",
+            ])
+        }
+        #expect(throws: Never.self) {
+            _ = try WhatCoverageCommand.parseAsRoot([
+                "--input", "coverage.json", "--base", "HEAD", "--json-output", "report.json", "--html-output", "report.html",
+            ])
+        }
     }
 
     @Test func llvmWorkflowWritesBothReportsBeforeReturningThresholdFailure() throws {
@@ -86,6 +101,7 @@ import Testing
         #expect(json.contains(#""status" : "failed""#))
         #expect(json.contains(#""capturedSourceRoot" : "/captured""#))
         #expect(html.contains("Failed (minimum 100.00%)"))
+        #expect(html.contains("Whole-project coverage"))
         #expect(json.contains(#""wholeProjectCoverage""#))
         #expect(json.contains(#""executable" : 1"#))
         #expect(!json.contains(#""coverageDelta""#))

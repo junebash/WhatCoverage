@@ -54,8 +54,9 @@ separate filter implementations for different report formats.
 ### Self-contained HTML report
 
 This pull request also adds `--html-output`. `HTMLReportRenderer` presents the
-existing `CoverageReportDocument` as escaped HTML, including per-file covered
-and uncovered changed-line numbers. It does not read source files, recalculate
+existing `CoverageReportDocument` as escaped HTML, including current
+whole-project coverage, optional delta, path mapping, and per-file covered and
+uncovered changed-line numbers. It does not read source files, recalculate
 coverage, upload data, or call GitHub. It therefore remains within the renderer
 and artifact-in/report-out boundaries.
 

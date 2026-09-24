@@ -185,6 +185,7 @@ Then run WhatCoverage from the root of that Git repository:
   --base origin/main \
   --markdown-output coverage.md \
   --json-output coverage.json \
+  --html-output coverage.html \
   --minimum 80
 ```
 
@@ -221,7 +222,9 @@ is:
 
 - `--input` and `--base` are required.
 - At least one of `--markdown-output`, `--json-output`, or `--html-output` is
-  required. Any combination may be supplied, but all output paths must differ.
+  required. Any combination may be supplied, but all output paths must differ
+  after normalizing `.` and `..` components (`report.json` and `./report.json`
+  are the same destination).
 - `--format llvm` or `--format xcode` overrides extension inference. Without it,
   `.json` means LLVM and `.xcresult` means Xcode.
 - `--head` defaults to `HEAD`.
@@ -363,10 +366,11 @@ replace the trust-split GitHub Actions design described in
 ### HTML reports
 
 `--html-output report.html` writes a self-contained, escaped HTML summary from
-the same calculated report document as Markdown and JSON. It includes each file's
-covered and uncovered changed-line numbers, but never reads or embeds source
-content. Requested Markdown, JSON, and HTML files are all written before a
-threshold-failure exit status is returned.
+the same calculated report document as Markdown and JSON. It includes current
+whole-project coverage, optional whole-project delta, coverage-input kind, path
+mapping, and each file's covered and uncovered changed-line numbers. It never
+reads or embeds source content. Requested Markdown, JSON, and HTML files are all
+written before a threshold-failure exit status is returned.
 
 ### Exit statuses
 
