@@ -96,10 +96,15 @@ design decisions.
 - **OUT-005:** Ordering is deterministic.
 - **OUT-006:** Reports distinguish a valid policy failure from an operational
   failure.
-- **OUT-007:** When requested, both report formats include deterministic
-  whole-project delta and identify the base artifact and its path mapping.
-- **OUT-008:** Both report formats include current whole-project coverage from
-  the head artifact without requiring a base artifact or implying a delta.
+- **OUT-007:** When requested, Markdown, JSON, and HTML reports include
+  deterministic whole-project delta and identify the base artifact and its path
+  mapping.
+- **OUT-008:** Markdown, JSON, and HTML reports include current whole-project
+  coverage from the head artifact without requiring a base artifact or implying
+  a delta.
+- **OUT-009:** HTML reports render the calculated report document with escaped
+  metadata and per-file covered/uncovered changed-line numbers without reading
+  source files or recalculating coverage.
 
 ## Command-line behavior
 
@@ -107,10 +112,12 @@ design decisions.
   base revision, optional head revision, comparison mode, optional captured
   source root, output destinations, and optional threshold.
 - **CLI-002:** Invalid arguments fail before artifact parsing or Git work begins.
+  Output destinations that resolve to the same path after normalizing `.` and
+  `..` components are an invocation error.
 - **CLI-003:** Exit statuses distinguish success, threshold failure, invalid
   invocation, invalid coverage input, and Git failure.
 - **CLI-004:** Diagnostics are concise and actionable.
-- **CLI-005:** The command can emit both Markdown and JSON in one invocation.
+- **CLI-005:** The command can emit Markdown, JSON, and HTML in one invocation.
 - **CLI-006:** Input format is inferred from a recognized artifact type when
   unambiguous; an explicit format overrides inference.
 - **CLI-007:** Unknown or ambiguous input types require an explicit format and

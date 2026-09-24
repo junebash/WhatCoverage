@@ -9,8 +9,8 @@ modules. The CLI coordinates dependencies; it does not contain coverage logic.
 head artifact ──> Coverage reader ──> normalized head ──┬─> DiffCoverage ─┐
                                                        │                 │
 Git revisions ──> Git diff provider ──> changed lines ─┘                 ├─> report ─┬─> Markdown
-                                                                         │           └─> JSON
-base artifact ──> Coverage reader ──> normalized base ─┬─> CoverageDelta ─┘
+                                                                         │           ├─> JSON
+base artifact ──> Coverage reader ──> normalized base ─┬─> CoverageDelta ─┘           └─> HTML
 normalized head ───────────────────────────────────────┘
 ```
 
@@ -101,7 +101,7 @@ other nested files use their first component, and repository-root files use
 
 ### ReportRendering
 
-Transforms one report model into versioned JSON or Markdown. Renderers do not
+Transforms one report model into versioned JSON, Markdown, or HTML. Renderers do not
 recalculate percentages or policy outcomes. This prevents output formats from
 disagreeing. `CoverageReportDocument` combines the calculated result with
 provider-independent revision, artifact, and path-mapping metadata before it
@@ -137,9 +137,14 @@ Version 2 additionally owns path scope and selected Sonar-properties import,
 placing imported rules before explicit overrides. It filters each configured
 input once before its calculator. An
 explicit `--minimum` takes precedence over the file. This single boundary keeps
-Markdown, JSON, totals, threshold policy, exit status, and downstream PR comment
-artifacts consistent. Threshold evaluation remains in the pure calculator; the
-configuration layer only selects its input value.
+Markdown, JSON, HTML, totals, threshold policy, exit status, and downstream PR
+comment artifacts consistent. Threshold evaluation remains in the pure calculator;
+the configuration layer only selects its input value.
+
+`HTMLReportRenderer` is another deterministic presentation of the same
+`CoverageReportDocument`, including whole-project coverage and delta when present;
+it neither accesses source files nor recalculates line coverage. This keeps the
+downloadable HTML report inside the renderer boundary.
 
 ## Report contract
 
