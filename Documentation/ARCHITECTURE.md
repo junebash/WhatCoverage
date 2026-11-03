@@ -161,6 +161,8 @@ future integrations:
 - deterministic per-file results
 - optional threshold
 - policy outcome: passed, failed, or not applicable
+- optional small-change line count when a not-applicable outcome ignored the
+  threshold
 - optional current whole-project head counts and percentage
 - optional base coverage input and path mapping
 - optional project, target, and file base/head whole-project counts,

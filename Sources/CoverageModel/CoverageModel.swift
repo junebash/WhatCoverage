@@ -249,10 +249,12 @@ public enum PolicyOutcome: Equatable, Sendable {
     case notApplicable(threshold: Percentage?)
     case passed(threshold: Percentage?)
     case failed(threshold: Percentage, actual: Percentage)
+    /// The minimum was not evaluated because fewer than `smallChangeLines` changed lines are executable.
+    case smallChange(threshold: Percentage, smallChangeLines: Int)
 
     public var statusLabel: String {
         switch self {
-        case .notApplicable:
+        case .notApplicable, .smallChange:
             "Not applicable"
         case .passed:
             "Passed"
@@ -269,6 +271,8 @@ public enum PolicyOutcome: Equatable, Sendable {
             "Coverage meets the configured minimum"
         case .failed:
             "Coverage is below the configured minimum"
+        case .smallChange(_, let lines):
+            "Minimum ignored for fewer than \(lines) changed executable lines"
         }
     }
 }

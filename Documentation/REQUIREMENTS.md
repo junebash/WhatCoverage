@@ -54,6 +54,10 @@ design decisions.
   not-applicable result and succeeds by default.
 - **CALC-006:** A configurable minimum percentage can fail the policy without
   hiding the calculated report.
+- **CALC-007:** An optional small-change line count, off by default, skips
+  minimum evaluation when the diff has fewer changed executable lines than that
+  count. The result is not applicable, succeeds, and still reports measured
+  coverage, matching SonarQube's quality-gate fudge factor at 20.
 
 ## Current whole-project coverage
 
@@ -129,7 +133,8 @@ design decisions.
   0 through 100 and deterministic, ordered, last-match-wins path rules over
   canonical repository-relative paths. Invalid or unsafe configuration is an
   invocation error.
-- **CLI-010:** An explicit `--minimum` overrides the configured minimum;
+- **CLI-010:** An explicit `--minimum` overrides the configured minimum and an
+  explicit `--small-change-lines` overrides `small_change_lines`;
   `--no-config` disables both configured policy and path selection.
 - **CLI-011:** An optional base coverage input, independently inferred or
   selected format, and captured source root enable whole-project delta.

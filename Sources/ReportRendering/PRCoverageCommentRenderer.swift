@@ -59,6 +59,8 @@ public struct ValidatedPRCoverageReport: Equatable, Sendable {
         public let status: PolicyStatus
         public let threshold: Double?
         public let actual: Double?
+        /// Present when the minimum was ignored because the change has fewer executable lines.
+        public var smallChangeLines: Int? = nil
     }
 
     public let totals: Counts
@@ -203,8 +205,22 @@ public struct PRCoverageReportValidator: Sendable {
 
         let threshold = try optionalPercentage(rawPolicy, key: "threshold", label: "policy threshold")
         let actualValue = totals.executable == 0 ? nil : Double(totals.covered) * 100 / Double(totals.executable)
+        let smallChangeLines: Int?
+        if rawPolicy.keys.contains("smallChangeLines") {
+            guard let lines = integer(rawPolicy["smallChangeLines"]),
+                  status == .notApplicable, threshold != nil, !rawPolicy.keys.contains("actual"),
+                  totals.executable > 0, totals.executable < lines
+            else {
+                throw invalid("small-change policy")
+            }
+            smallChangeLines = lines
+        } else {
+            smallChangeLines = nil
+        }
         let policyActual: Double?
         switch status {
+        case .notApplicable where smallChangeLines != nil:
+            policyActual = nil
         case .failed:
             guard let threshold,
                   rawPolicy.keys.contains("actual"),
@@ -230,7 +246,7 @@ public struct PRCoverageReportValidator: Sendable {
             totals: totals,
             wholeProjectCoverage: wholeProjectCoverage,
             files: files,
-            policy: .init(status: status, threshold: threshold, actual: policyActual)
+            policy: .init(status: status, threshold: threshold, actual: policyActual, smallChangeLines: smallChangeLines)
         )
     }
 
@@ -339,6 +355,8 @@ public struct PRCoverageCommentRenderer: Sendable {
         switch report.policy.status {
         case .failed:
             status = "❌ Failed: \(percent) is below the required \(threshold!)"
+        case .notApplicable where report.policy.smallChangeLines != nil:
+            status = "➖ Not applicable: \(percent) with fewer than \(report.policy.smallChangeLines!) changed executable lines; the required \(threshold!) is ignored"
         case .notApplicable:
             status = "➖ Not applicable: no changed executable lines"
         case .passed where threshold != nil:

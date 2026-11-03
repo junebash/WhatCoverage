@@ -347,6 +347,7 @@ import Testing
         try Data("""
         schema_version = 1
         minimum = 60
+        small_change_lines = 20
         [[paths]]
         pattern = "**"
         action = "exclude"
@@ -357,6 +358,7 @@ import Testing
         let configuration = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: false, repository: repository)
         let expectedMinimum = try Percentage(60)
         #expect(configuration.minimum == expectedMinimum)
+        #expect(configuration.smallChangeLines == 20)
         #expect(configuration.pathSelection.includes(try RepositoryPath("Sources/App.swift")))
         #expect(!configuration.pathSelection.includes(try RepositoryPath("Tests/AppTests.swift")))
         let disabled = try WhatCoverageCommand.fileConfiguration(config: nil, noConfig: true, repository: repository)

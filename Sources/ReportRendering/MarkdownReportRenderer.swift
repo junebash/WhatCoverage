@@ -86,6 +86,8 @@ public struct MarkdownReportRenderer: Sendable {
             return threshold.map { "Passed (minimum \(format($0)))" } ?? "Passed"
         case .failed(let threshold, _):
             return "Failed (minimum \(format(threshold)))"
+        case .smallChange(let threshold, let lines):
+            return "Not applicable (minimum \(format(threshold)) ignored below \(lines) changed executable lines)"
         case .notApplicable(let threshold):
             return threshold.map { "Not applicable (minimum \(format($0)))" } ?? "Not applicable"
         }
