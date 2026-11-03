@@ -162,6 +162,7 @@ private struct Policy: Encodable {
     let status: Status
     let threshold: Percentage?
     let actual: Percentage?
+    var smallChangeLines: Int?
 
     init(_ outcome: PolicyOutcome) {
         switch outcome {
@@ -177,6 +178,11 @@ private struct Policy: Encodable {
             status = .notApplicable
             self.threshold = threshold
             actual = nil
+        case .smallChange(let threshold, let lines):
+            status = .notApplicable
+            self.threshold = threshold
+            actual = nil
+            smallChangeLines = lines
         }
     }
 }

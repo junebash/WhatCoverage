@@ -35,6 +35,17 @@ import Testing
         #expect(DiffCoverageCalculator.calculate(coverage: coverage, changes: changes, minimum: high).policy == .failed(threshold: high, actual: actual))
     }
 
+    @Test func smallChangesIgnoreTheMinimumBelowTheLineCount() throws {
+        let coverage = try NormalizedCoverage(files: [file("A.swift", [(1, 1), (2, 0), (3, 0)])])
+        let changes = try ChangedLines(files: [changed("A.swift", [1, 2, 3])])
+        let threshold = try Percentage(60)
+        let actual = try #require(Percentage.ratio(covered: 1, executable: 3))
+
+        #expect(DiffCoverageCalculator.calculate(coverage: coverage, changes: changes, minimum: threshold, smallChangeLines: 4).policy == .smallChange(threshold: threshold, smallChangeLines: 4))
+        #expect(DiffCoverageCalculator.calculate(coverage: coverage, changes: changes, minimum: threshold, smallChangeLines: 3).policy == .failed(threshold: threshold, actual: actual))
+        #expect(DiffCoverageCalculator.calculate(coverage: coverage, changes: changes, smallChangeLines: 4).policy == .passed(threshold: nil))
+    }
+
     @Test func noExecutableChangedLinesIsNotApplicableEvenWithThreshold() throws {
         let coverage = try NormalizedCoverage(files: [file("A.swift", [(2, 1)])])
         let changes = try ChangedLines(files: [changed("A.swift", [1, 3])])

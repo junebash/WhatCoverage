@@ -86,11 +86,12 @@
       "oneOf": [
         {
           "properties": {"status": {"const": "failed"}},
-          "required": ["threshold", "actual"]
+          "required": ["threshold", "actual"],
+          "not": {"required": ["smallChangeLines"]}
         },
         {
           "properties": {"status": {"const": "passed"}},
-          "not": {"required": ["actual"]}
+          "not": {"anyOf": [{"required": ["actual"]}, {"required": ["smallChangeLines"]}]}
         },
         {
           "properties": {"status": {"const": "notApplicable"}},
@@ -100,7 +101,12 @@
       "properties": {
         "status": {"enum": ["passed", "failed", "notApplicable"]},
         "threshold": {"$ref": "#/$defs/percentage"},
-        "actual": {"$ref": "#/$defs/percentage"}
+        "actual": {"$ref": "#/$defs/percentage"},
+        "smallChangeLines": {
+          "description": "Present only with notApplicable when a threshold was ignored because fewer than this many changed lines are executable.",
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   },

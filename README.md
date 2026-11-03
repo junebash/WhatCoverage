@@ -236,6 +236,12 @@ is:
   semantics. `--comparison direct` measures literal `base..head` changes.
 - `--minimum` accepts a percentage from 0 through 100 and overrides a configured
   `minimum`. Policy evaluation uses the unrounded value.
+- `--small-change-lines N` overrides a configured `small_change_lines`. When a
+  minimum is set and the diff has between 1 and N−1 changed executable lines,
+  the minimum is not evaluated: the result is not applicable and succeeds, while
+  the measured coverage is still reported. Use 20 to match SonarQube's
+  "Ignore duplication and coverage on small changes" quality-gate setting. The
+  default, 0, always evaluates the minimum.
 - The command discovers `.whatcoverage.toml` only at the resolved Git repository
   root (including when invoked from a subdirectory). `--config PATH` replaces
   that discovery; `--no-config` disables it. A missing discovered file preserves
@@ -333,8 +339,9 @@ Patterns must be nonempty, relative, slash-separated, and canonical. Absolute,
 drive-rooted, backslash, empty-component, `.`, `..`, and embedded-`**` patterns
 are rejected. The parser requires `schema_version = 1` or `2`; each optional
 `[[paths]]` table requires quoted `pattern` and `action` strings.
-`minimum` must be an unquoted, finite number from 0 through 100 and must precede
-the first table header. It is optional, as are path rules. The parser
+`minimum` must be an unquoted, finite number from 0 through 100 and
+`small_change_lines` an unquoted, non-negative integer; both must precede the
+first table header. It is optional, as are path rules. The parser
 rejects unknown or duplicate keys, malformed values, unsupported schema
 versions, and invalid rules as invocation errors. No TOML dependency is used:
 the implementation intentionally accepts only this small, validated TOML subset

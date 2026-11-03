@@ -48,6 +48,7 @@ public struct WhatCoverageConfiguration: Sendable {
     public let jsonOutput: String?
     public let htmlOutput: String?
     public let minimum: Percentage?
+    public let smallChangeLines: Int
     public let pathSelection: PathSelection
     public let pathScope: PathScope
 
@@ -65,6 +66,7 @@ public struct WhatCoverageConfiguration: Sendable {
         jsonOutput: String? = nil,
         htmlOutput: String? = nil,
         minimum: Percentage? = nil,
+        smallChangeLines: Int = 0,
         pathSelection: PathSelection = PathSelection(),
         pathScope: PathScope = PathScope()
     ) {
@@ -81,6 +83,7 @@ public struct WhatCoverageConfiguration: Sendable {
         self.jsonOutput = jsonOutput
         self.htmlOutput = htmlOutput
         self.minimum = minimum
+        self.smallChangeLines = smallChangeLines
         self.pathSelection = pathSelection
         self.pathScope = pathScope
     }
@@ -192,7 +195,8 @@ public struct WhatCoverageWorkflow: Sendable {
             changes: configuration.pathScope.changedLines
                 ? try configuration.pathSelection.filter(diff.changes)
                 : diff.changes,
-            minimum: configuration.minimum
+            minimum: configuration.minimum,
+            smallChangeLines: configuration.smallChangeLines
         )
         let wholeProjectCoverage = configuration.pathScope.wholeProject
             ? try configuration.pathSelection.filter(coverage).wholeProjectCounts
@@ -287,6 +291,7 @@ public struct WhatCoverageCommand: ParsableCommand {
     @Option(help: "Write a JSON report to this path.") var jsonOutput: String?
     @Option(help: "Write an HTML report to this path.") var htmlOutput: String?
     @Option(help: "Minimum changed-line coverage percentage (0 through 100).") var minimum: Double?
+    @Option(help: "Ignore the minimum when fewer than this many changed lines are executable (SonarQube uses 20).") var smallChangeLines: Int?
     @Option(help: "Read coverage policy and path selection from this TOML file (relative paths are rooted at the compared repository).") var config: String?
     @Flag(name: .long, help: "Do not load the repository's .whatcoverage.toml file.") var noConfig = false
 
@@ -324,6 +329,9 @@ public struct WhatCoverageCommand: ParsableCommand {
         if let minimum, (!(0...100).contains(minimum) || !minimum.isFinite) {
             throw ValidationError("--minimum must be a finite percentage from 0 through 100.")
         }
+        if let smallChangeLines, smallChangeLines < 0 {
+            throw ValidationError("--small-change-lines must be zero or greater.")
+        }
         if config != nil && noConfig { throw ValidationError("--config and --no-config cannot be used together.") }
         if format == nil { format = try Self.inferFormat(for: input) }
         if let baseInput, baseFormat == nil { baseFormat = try Self.inferFormat(for: baseInput) }
@@ -347,6 +355,7 @@ public struct WhatCoverageCommand: ParsableCommand {
             jsonOutput: jsonOutput,
             htmlOutput: htmlOutput,
             minimum: minimum,
+            smallChangeLines: smallChangeLines ?? fileConfiguration.smallChangeLines,
             pathSelection: fileConfiguration.pathSelection,
             pathScope: fileConfiguration.pathScope
         )

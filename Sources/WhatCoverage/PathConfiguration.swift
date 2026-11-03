@@ -64,15 +64,18 @@ public struct PathScope: Sendable {
 
 struct RepositoryConfiguration: Sendable {
     let minimum: Percentage?
+    let smallChangeLines: Int
     let pathSelection: PathSelection
     let pathScope: PathScope
 
     init(
         minimum: Percentage? = nil,
+        smallChangeLines: Int = 0,
         pathSelection: PathSelection = PathSelection(),
         pathScope: PathScope = PathScope()
     ) {
         self.minimum = minimum
+        self.smallChangeLines = smallChangeLines
         self.pathSelection = pathSelection
         self.pathScope = pathScope
     }
@@ -87,6 +90,7 @@ enum PathConfigurationLoader {
         var version: Int?
         var minimum: Percentage?
         var hasMinimum = false
+        var smallChangeLines: Int?
         var rules: [(line: Int, values: [String: String])] = []
         var section = Section.topLevel
         var pathScope: [String: Bool] = [:]
@@ -161,6 +165,12 @@ enum PathConfigurationLoader {
                     }
                     minimum = try Percentage(value)
                     hasMinimum = true
+                } else if key == "small_change_lines" {
+                    guard smallChangeLines == nil else { throw error(url, lineNumber, "duplicate key small_change_lines") }
+                    guard let value = Int(value), value >= 0 else {
+                        throw error(url, lineNumber, "small_change_lines must be a non-negative integer")
+                    }
+                    smallChangeLines = value
                 } else {
                     throw error(url, lineNumber, "unknown top-level key \(key)")
                 }
@@ -186,6 +196,7 @@ enum PathConfigurationLoader {
         let importedRules = try sonarRules(sonar, configurationURL: url)
         return RepositoryConfiguration(
             minimum: minimum,
+            smallChangeLines: smallChangeLines ?? 0,
             pathSelection: PathSelection(rules: importedRules + explicitRules),
             pathScope: PathScope(
                 changedLines: pathScope["changed_lines"] ?? true,

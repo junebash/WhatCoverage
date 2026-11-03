@@ -170,6 +170,20 @@ load bounded UTF-8 source beneath a checkout root, and write Markdown directly.
 This shares the validator, renderer, and limits without granting untrusted pull
 request code a write token or changing flat report output.
 
+### D-019: Match SonarQube's small-change fudge factor as an opt-in policy
+
+SonarQube ignores new-code coverage conditions until a change has 20 new lines
+to cover, so small, poorly covered pull requests pass Sonar but failed
+WhatCoverage. `small_change_lines` (or `--small-change-lines`) skips minimum
+evaluation when the diff has 1 through N−1 changed executable lines. It
+defaults to 0 so existing policies keep their meaning.
+
+The outcome reuses version 1 status `notApplicable`, because the threshold is
+not applied, and adds the optional `smallChangeLines` policy member under D-011.
+`notApplicable` without that member still means no changed executable lines.
+Consumers that only read `policy.status` see a non-failing result, as with
+Sonar's passing gate.
+
 ## Pending
 
 None.

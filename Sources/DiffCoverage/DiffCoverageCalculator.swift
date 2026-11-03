@@ -4,7 +4,8 @@ public enum DiffCoverageCalculator {
     public static func calculate(
         coverage: NormalizedCoverage,
         changes: ChangedLines,
-        minimum: Percentage? = nil
+        minimum: Percentage? = nil,
+        smallChangeLines: Int = 0
     ) -> DiffCoverageReport {
         let results = changes.files.values.compactMap { change -> FileCoverageResult? in
             guard let fileCoverage = coverage.files[change.path] else { return nil }
@@ -23,7 +24,9 @@ public enum DiffCoverageCalculator {
         let totals = CoverageCounts(executable: executable, covered: covered)
         let policy: PolicyOutcome
         if let actual = totals.percentage {
-            if let minimum, actual < minimum {
+            if let minimum, totals.executable < smallChangeLines {
+                policy = .smallChange(threshold: minimum, smallChangeLines: smallChangeLines)
+            } else if let minimum, actual < minimum {
                 policy = .failed(threshold: minimum, actual: actual)
             } else {
                 policy = .passed(threshold: minimum)

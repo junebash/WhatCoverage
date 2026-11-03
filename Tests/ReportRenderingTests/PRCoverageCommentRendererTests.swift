@@ -75,6 +75,12 @@ import Testing
         let zeroProject = try render(notApplicable)
         #expect(zeroProject.contains("**Whole-project coverage:** Not applicable (0/0 executable lines)"))
         #expect(!zeroProject.contains("0.00% (0/0"))
+
+        var smallChange = report()
+        smallChange["policy"] = ["status": "notApplicable", "threshold": 60, "smallChangeLines": 20]
+        #expect(try render(smallChange).contains("Not applicable: 33.33% with fewer than 20 changed executable lines; the required 60.00% is ignored"))
+        smallChange["policy"] = ["status": "notApplicable", "threshold": 60, "smallChangeLines": 3]
+        #expect(throws: PRCoverageCommentError.self) { try validate(smallChange) }
     }
 
     @Test func acceptsOlderVersionOneReportWithoutWholeProjectCoverage() throws {
